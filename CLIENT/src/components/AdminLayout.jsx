@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useApp } from "../context/AppContext";
 import {
   LayoutDashboard,
   Users,
@@ -10,14 +11,17 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Bell,
+  Search,
+  Menu,
   X,
   Shield,
 } from "lucide-react";
-import Header from "./Header";
 
 const AdminLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { currentUser } = useApp();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -148,13 +152,36 @@ const AdminLayout = ({ children }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
         {/* Top Header */}
-        <Header
-          variant="app"
-          admin
-          onMenuClick={() => setIsMobileMenuOpen(true)}
-          searchPlaceholder="Search users, subjects..."
-          avatarLabel="A"
-        />
+        <header className="bg-[#0d1117]/80 backdrop-blur-xl border-b border-white/5 px-4 lg:px-8 py-4 sticky top-0 z-30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="lg:hidden p-2 rounded-lg hover:bg-white/5 transition-colors"
+              >
+                <Menu size={20} className="text-gray-400" />
+              </button>
+              <div className="hidden md:flex items-center gap-3 bg-[#1f2937]/40 border border-white/5 rounded-xl px-4 py-2.5 w-80">
+                <Search size={18} className="text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search users, subjects..."
+                  className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button className="relative p-2.5 rounded-xl hover:bg-white/5 transition-colors">
+                <Bell size={20} className="text-gray-400" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+              </button>
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center font-bold text-sm lg:hidden">
+                A
+              </div>
+            </div>
+          </div>
+        </header>
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-8">{children}</main>

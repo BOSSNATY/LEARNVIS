@@ -11,7 +11,6 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import Header from "../components/Header";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -61,7 +60,33 @@ const Landing = () => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/5 rounded-full blur-[150px]"></div>
       </div>
 
-      <Header />
+      {/* Navigation */}
+      <nav className="landing-nav relative z-10 px-6 py-4">
+        <div className="landing-container landing-nav-row max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="landing-brand-mark w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <div className="w-5 h-5 border-2 border-white rounded-full border-t-transparent animate-spin"></div>
+            </div>
+            <span className="landing-brand-text text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              LEARNVIS
+            </span>
+          </div>
+          <div className="landing-nav-actions flex items-center gap-4">
+            <button
+              onClick={() => navigate("/login")}
+              className="px-5 py-2.5 text-gray-300 hover:text-white transition-colors font-medium"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => navigate("/signup")}
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all shadow-lg shadow-blue-600/20 hover:shadow-blue-500/30"
+            >
+              Get Started
+            </button>
+          </div>
+        </div>
+      </nav>
 
       {/* Hero Section */}
       <section className="landing-hero relative z-10 px-6 pt-20 pb-32">

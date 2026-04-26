@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Check } from "lucide-react";
-import Header from "../components/Header";
 
 const Signup = ({ setUser }) => {
   const navigate = useNavigate();
@@ -47,7 +46,18 @@ const Signup = ({ setUser }) => {
       <div className="absolute top-[5%] right-[-10%] w-96 h-96 bg-blue-600/10 rounded-full blur-[100px]"></div>
       <div className="absolute bottom-[5%] left-[-10%] w-96 h-96 bg-purple-600/10 rounded-full blur-[100px]"></div>
 
-      <Header variant="auth" />
+      {/* Brand Header */}
+      <div
+        className="flex items-center gap-3 mb-8 relative z-10 cursor-pointer"
+        onClick={() => navigate("/")}
+      >
+        <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <div className="w-7 h-7 border-2 border-white rounded-full border-t-transparent animate-spin"></div>
+        </div>
+        <h1 className="text-3xl font-bold text-white tracking-tight">
+          Learnvis
+        </h1>
+      </div>
 
       {/* Signup Card */}
       <div className="w-full max-w-md bg-[#111827]/40 backdrop-blur-2xl border border-white/10 p-8 rounded-[2rem] shadow-2xl relative z-10">
