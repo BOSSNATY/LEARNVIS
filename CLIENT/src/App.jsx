@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import { useState } from "react";
 
+import "./styles/responsive.css";
 // Auth Pages
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";

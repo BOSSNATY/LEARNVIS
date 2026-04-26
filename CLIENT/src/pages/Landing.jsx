@@ -11,6 +11,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import logo from "../assets/img/logo-dark.png";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -64,11 +65,11 @@ const Landing = () => {
       <nav className="landing-nav relative z-10 px-6 py-4">
         <div className="landing-container landing-nav-row max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="landing-brand-mark w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+            {/* <div className="landing-brand-mark w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
               <div className="w-5 h-5 border-2 border-white rounded-full border-t-transparent animate-spin"></div>
-            </div>
-            <span className="landing-brand-text text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-              LEARNVIS
+            </div> */}
+            <span className="logoimg-width">
+              <img src={logo} alt="" />
             </span>
           </div>
           <div className="landing-nav-actions flex items-center gap-4">
@@ -104,14 +105,13 @@ const Landing = () => {
             </span>
             <br />
             <span className="bg-gradient-to-r from-blue-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">
-              Not Harder
+              Achieve Greater
             </span>
           </h1>
 
           <p className="landing-copy text-xl text-gray-400 max-w-2xl mx-auto mb-10">
-            Experience personalized learning with AI-generated quizzes, adaptive
-            content, and comprehensive analytics designed to accelerate your
-            education journey.
+            An Al-powered learning platform that adapts to your pace and helps
+            you master any subject with personaitzed guidance.
           </p>
 
           <div className="landing-cta-row flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">

@@ -245,6 +245,13 @@ main select {
   min-width: 0;
 }
 
+.loginimg-width {
+  justify-items: center;
+}
+.logoimg-width img {
+  width: 25%;
+}
+
 @media (max-width: 1024px) {
   .landing-feature-grid,
   .landing-subject-grid,

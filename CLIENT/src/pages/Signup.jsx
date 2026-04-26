@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Check } from "lucide-react";
+import logo from "../assets/img/logo-dark.png";
 
 const Signup = ({ setUser }) => {
   const navigate = useNavigate();
@@ -51,12 +52,9 @@ const Signup = ({ setUser }) => {
         className="flex items-center gap-3 mb-8 relative z-10 cursor-pointer"
         onClick={() => navigate("/")}
       >
-        <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/20">
-          <div className="w-7 h-7 border-2 border-white rounded-full border-t-transparent animate-spin"></div>
-        </div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">
-          Learnvis
-        </h1>
+        <span className="loginimg-width logoimg-width">
+          <img src={logo} alt="" />
+        </span>
       </div>
 
       {/* Signup Card */}
