@@ -26,7 +26,7 @@ const LearnPage = () => {
 
   // Mock content for the topic
   const content = {
-    video: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Placeholder
+    video: "https://www.youtube.com/embed/dHjWVlfNraM?si=MOCET5Fq8GiaKpar", // Placeholder
     text: `
 # Motion and Kinematics
 
