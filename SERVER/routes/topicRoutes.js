@@ -7,4 +7,8 @@ const { authMiddleware } = require("../middleware/authMiddleware");
 
 router.post("/", authMiddleware, topicController.createTopic);
 
+router.get("/:subjectId", authMiddleware, topicController.getTopicsBySubject);
+
+router.get("/single/:id", authMiddleware, topicController.getTopic);
+
 module.exports = router;
