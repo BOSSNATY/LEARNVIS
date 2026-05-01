@@ -322,7 +322,7 @@ const Landing = () => {
               </span>
             </div>
             <div className="text-gray-500 text-sm">
-              © 2024 LEARNVIS. All rights reserved.
+              © 2026 LEARNVIS. All rights reserved.
             </div>
           </div>
         </div>
