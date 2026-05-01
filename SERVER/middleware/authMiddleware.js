@@ -1,17 +1,19 @@
 const jwt = require("jsonwebtoken");
 
-module.exports = (req, res, next) => {
-  const token = req.header("Authorization")?.replace("Bearer ", "");
+exports.authMiddleware = (req, res, next) => {
+  const authHeader = req.headers.authorization;
 
-  if (!token) {
-    return res.status(401).json({ error: "No token, authorization denied" });
+  if (!authHeader) {
+    return res.status(401).json({ message: "No token provided" });
   }
+
+  const token = authHeader.split(" ")[1]; // Bearer TOKEN
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Adds { userId, role } to the request object
+    req.user = decoded; // 🔥 THIS is what you need
     next();
   } catch (err) {
-    res.status(401).json({ error: "Token is not valid" });
+    return res.status(401).json({ message: "Invalid token" });
   }
 };
