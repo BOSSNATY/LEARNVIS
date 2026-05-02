@@ -1,7 +1,6 @@
 const pool = require("../config/db");
 const { generateQuizAI } = require("../services/aiService");
 const { rephraseQuestionsAI } = require("../services/aiService");
-
 const {
   handleMistakes,
   updateLearningState,
@@ -141,7 +140,6 @@ exports.submitQuiz = async (req, res) => {
 
     // 5. Analyze weaknesses
     await handleMistakes(userId, analysis);
-
     // 6. Update learning state
     await updateLearningState(userId, quizId, score);
 
