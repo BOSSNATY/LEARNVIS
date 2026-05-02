@@ -32,8 +32,32 @@ async function updateLearningState(userId, quizId, score) {
     [score, status, userId, topicId],
   );
 }
+async function generateMicroLessons(userId, topicId) {
+  const [mistakes] = await pool.execute(
+    `SELECT concept_tag, frequency
+     FROM mistake_profiles
+     WHERE user_id = ?`,
+    [userId],
+  );
+
+  if (mistakes.length === 0) return;
+
+  for (const m of mistakes) {
+    await pool.execute(
+      `INSERT INTO micro_lessons (topic_id, title, content, concept_tag)
+       VALUES (?, ?, ?, ?)`,
+      [
+        topicId,
+        `Fixing ${m.concept_tag}`,
+        `AI-generated explanation for ${m.concept_tag}`,
+        m.concept_tag,
+      ],
+    );
+  }
+}
 
 module.exports = {
   handleMistakes,
   updateLearningState,
+  generateMicroLessons,
 };

@@ -6,6 +6,8 @@ const {
   updateLearningState,
 } = require("../services/quizService");
 
+const { processMistakes } = require("../services/mistakeService");
+
 exports.generateQuiz = async (req, res) => {
   const { topicId, mode } = req.body;
 
@@ -142,7 +144,8 @@ exports.submitQuiz = async (req, res) => {
     await handleMistakes(userId, analysis);
     // 6. Update learning state
     await updateLearningState(userId, quizId, score);
-
+    await generateMicroLessons(userId, topicId);
+    await processMistakes(userId, analysis);
     // 7. Decide next step
     const nextAction = score >= 96 ? "MASTERED" : "RETRY_REQUIRED";
 
