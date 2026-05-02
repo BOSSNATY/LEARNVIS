@@ -9,13 +9,17 @@ const topicRoutes = require("./routes/topicRoutes");
 const learningRoutes = require("./routes/learningRoutes");
 const studyPlanRoutes = require("./routes/studyPlanRoutes");
 const studySessionsRoutes = require("./routes/studySessionsRoutes");
+const mistakeRoutes = require("./routes/mistakeRoutes");
+const { startTaskScheduler } = require("./jobs/taskScheduler");
 
+// Start scheduler when server starts
 require("dotenv").config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+startTaskScheduler();
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/users", subjectRoutes);
@@ -25,6 +29,7 @@ app.use("/api/learning", learningRoutes);
 app.use("/api/quiz", quizRoutes);
 app.use("/api/study-plans", studyPlanRoutes);
 app.use("/api/study-sessions", studySessionsRoutes);
+app.use("/api/mistakes", mistakeRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

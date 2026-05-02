@@ -1,28 +1,15 @@
 const pool = require("../config/db");
 
-exports.startStudySession = async (req, res) => {
-  const userId = req.user.userId;
-
-  const {
-    topicId,
-    plannedDuration,
-    sessionType = "learn",
-    dayNumber,
-  } = req.body;
+exports.startSession = async (req, res) => {
+  const userId = req.user.id;
+  const { topic_id, planned_duration, session_type, day_number } = req.body;
 
   try {
     const [result] = await pool.execute(
-      `INSERT INTO study_sessions
-      (user_id, topic_id, planned_duration, session_type, day_number)
-      VALUES (?, ?, ?, ?, ?)`,
-      [userId, topicId, plannedDuration, sessionType, dayNumber],
-    );
-
-    await pool.execute(
-      `UPDATE learning_state
-       SET status = 'learning'
-       WHERE user_id = ? AND topic_id = ?`,
-      [userId, topicId],
+      `INSERT INTO study_session
+      (user_id, topic_id, start_time, planned_duration, session_type, day_number)
+      VALUES (?, ?, NOW(), ?, ?, ?)`,
+      [userId, topic_id, planned_duration, session_type, day_number],
     );
 
     res.json({
@@ -34,73 +21,71 @@ exports.startStudySession = async (req, res) => {
   }
 };
 
-exports.endStudySession = async (req, res) => {
-  const userId = req.user.userId;
-
-  const { sessionId, focusScore = 100, fatigueLevel = "normal" } = req.body;
+exports.endSession = async (req, res) => {
+  const userId = req.user.id;
+  const { session_id, focus_score, fatigue_level } = req.body;
 
   try {
-    // 1. Close session
     await pool.execute(
-      `UPDATE study_sessions
+      `UPDATE study_session
        SET end_time = NOW(),
            focus_score = ?,
            fatigue_level = ?
        WHERE id = ? AND user_id = ?`,
-      [focusScore, fatigueLevel, sessionId, userId],
+      [focus_score, fatigue_level, session_id, userId],
     );
 
-    // 2. Get session data
-    const [sessionRows] = await pool.execute(
-      `SELECT topic_id FROM study_sessions WHERE id = ?`,
-      [sessionId],
+    res.json({ message: "Session ended" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.startFromTask = async (req, res) => {
+  const userId = req.user.id;
+  const { taskId } = req.params;
+
+  try {
+    // 1. Get task (must belong to user via plan)
+    const [tasks] = await pool.execute(
+      `
+      SELECT st.*, tp.title
+      FROM study_tasks st
+      JOIN study_plans sp ON st.plan_id = sp.id
+      JOIN topics tp ON st.topic_id = tp.id
+      WHERE st.id = ? AND sp.user_id = ?
+      `,
+      [taskId, userId],
     );
 
-    const topicId = sessionRows[0]?.topic_id;
-
-    if (!topicId) {
-      return res.status(400).json({ error: "Invalid session" });
+    if (tasks.length === 0) {
+      return res.status(404).json({
+        error: "Task not found or not authorized",
+      });
     }
 
-    // 3. Weighted progress calculation
-    let boost = 10;
+    const task = tasks[0];
 
-    if (focusScore >= 80) boost += 5;
-    if (focusScore >= 90) boost += 5;
-
-    if (fatigueLevel === "low") boost += 5;
-    if (fatigueLevel === "high") boost -= 5;
-
-    // 4. Update learning state
-    const [stateRows] = await pool.execute(
-      `SELECT progress_percent FROM learning_state
-       WHERE user_id = ? AND topic_id = ?`,
-      [userId, topicId],
-    );
-
-    let current = stateRows[0]?.progress_percent || 0;
-    let newProgress = Math.min(current + boost, 100);
-
-    let status = "learning";
-
-    if (newProgress >= 100) {
-      status = "practicing";
-    }
-
-    await pool.execute(
-      `UPDATE learning_state
-       SET progress_percent = ?,
-           status = ?
-       WHERE user_id = ? AND topic_id = ?`,
-      [newProgress, status, userId, topicId],
+    // 2. Create session from task
+    const [result] = await pool.execute(
+      `
+      INSERT INTO study_session
+      (user_id, topic_id, start_time, planned_duration, session_type, day_number)
+      VALUES (?, ?, NOW(), ?, ?, ?)
+      `,
+      [
+        userId,
+        task.topic_id,
+        task.planned_duration || 60,
+        task.session_type || "learn",
+        task.day_number || 0,
+      ],
     );
 
     res.json({
-      message: "Session completed",
-      focusScore,
-      fatigueLevel,
-      progress: newProgress,
-      status,
+      message: "Study session started from task",
+      sessionId: result.insertId,
+      topic: task.title,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

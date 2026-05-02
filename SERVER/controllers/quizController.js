@@ -8,7 +8,9 @@ const {
 
 const { processMistakes } = require("../services/mistakeService");
 
+const { updateMistakeProfile } = require("../services/mistakeProfileService");
 const { generateMicroLessons } = require("../services/microLessonService");
+const { updateStudyPlanFromMistakes } = require("../services/studyPlanUpdater");
 
 exports.generateQuiz = async (req, res) => {
   const { topicId, mode } = req.body;
@@ -83,84 +85,35 @@ exports.getQuiz = async (req, res) => {
 };
 
 exports.submitQuiz = async (req, res) => {
-  const userId = req.user.userId;
-  const { quizId, answers } = req.body;
+  const userId = req.user.id;
+  const { answers, topicId, planId } = req.body;
 
   try {
-    // 1. Get questions + correct answers
-    const [questions] = await pool.execute(
-      `SELECT q.id AS question_id, o.id AS option_id, o.is_correct
-       FROM questions q
-       JOIN question_options o ON q.id = o.question_id
-       WHERE q.quiz_id = ?`,
-      [quizId],
-    );
+    for (const a of answers) {
+      if (!a.isCorrect) {
+        // 1. Save raw mistake
+        await pool.execute(
+          `
+          INSERT INTO mistakes
+          (user_id, topic_id, question_id, user_answer, correct_answer)
+          VALUES (?, ?, ?, ?, ?)
+          `,
+          [userId, topicId, a.questionId, a.userAnswer, a.correctAnswer],
+        );
 
-    // 2. Evaluate answers
-    let correct = 0;
-    const analysis = [];
-
-    for (const ans of answers) {
-      const qOptions = questions.filter(
-        (q) => q.question_id === ans.questionId,
-      );
-
-      const correctOption = qOptions.find((o) => o.is_correct === 1);
-
-      const isCorrect = correctOption?.option_id === ans.optionId;
-
-      if (isCorrect) correct++;
-
-      analysis.push({
-        questionId: ans.questionId,
-        isCorrect,
-        concept: ans.concept_tag || null,
-      });
-
-      // 3. Save answer
-      await pool.execute(
-        `INSERT INTO answers
-        (attempt_id, question_id, selected_option_id, is_correct, concept_tag)
-        VALUES (?, ?, ?, ?, ?)`,
-        [
-          ans.attemptId,
-          ans.questionId,
-          ans.optionId,
-          isCorrect,
-          ans.concept_tag,
-        ],
-      );
+        // 2. Update concept intelligence
+        await updateMistakeProfile(userId, topicId, a.conceptTag || "general");
+      }
     }
 
-    const score = Math.round((correct / answers.length) * 100);
-
-    // 4. Save attempt result
-    const [attempt] = await pool.execute(
-      `INSERT INTO quiz_attempts
-      (user_id, quiz_id, score, passed)
-      VALUES (?, ?, ?, ?)`,
-      [userId, quizId, score, score >= 96],
-    );
-
-    // 5. Analyze weaknesses
-    await handleMistakes(userId, analysis);
-    // 6. Update learning state
-    await updateLearningState(userId, quizId, score);
+    // 3. Generate micro-lessons (AI)
     await generateMicroLessons(userId, topicId);
-    await processMistakes(userId, analysis);
-    // fetch topic name (optional but better AI quality)
-    const [topic] = await pool.execute(
-      `SELECT title FROM topics WHERE id = ?`,
-      [topicId],
-    );
-    await generateMicroLessons(userId, topicId, topic[0]?.title); // 7. Decide next step
-    const nextAction = score >= 96 ? "MASTERED" : "RETRY_REQUIRED";
+
+    // 4. Update study plan dynamically
+    await updateStudyPlanFromMistakes(planId, userId);
 
     res.json({
-      score,
-      correct,
-      total: answers.length,
-      nextAction,
+      message: "Quiz processed successfully",
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
