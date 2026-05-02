@@ -69,8 +69,12 @@ exports.getTopic = async (req, res) => {
 };
 
 exports.startTopic = async (req, res) => {
-  const { topicId } = req.params;
+  const { id } = req.params;
+  const topicId = id;
   const userId = req.user.userId;
+  console.log(userId);
+  console.log("START ROUTE HIT");
+  console.log("PARAMS:", req.params);
 
   try {
     const content = await buildTopicContent(topicId, userId);

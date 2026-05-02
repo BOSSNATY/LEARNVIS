@@ -43,10 +43,19 @@ exports.createStudyPlan = async (req, res) => {
 // ==========================================
 exports.generateDailyTasks = async (req, res) => {
   const { planId } = req.params;
-  const userId = req.user.userId;
+  const userId = req.user.id;
+
+  const { topicIds } = req.body;
 
   try {
-    // 1. Get plan
+    // 1. Validate
+    if (!topicIds || topicIds.length === 0) {
+      return res.status(400).json({
+        error: "Please select at least one topic",
+      });
+    }
+
+    // 2. Get plan
     const [plans] = await pool.execute(
       `SELECT * FROM study_plans WHERE id = ? AND user_id = ?`,
       [planId, userId],
@@ -58,20 +67,29 @@ exports.generateDailyTasks = async (req, res) => {
 
     const plan = plans[0];
 
-    // 2. Get topics (IMPORTANT: full data)
-    const [topics] = await pool.execute(
-      `SELECT id, title, difficulty FROM topics WHERE subject_id = ?`,
-      [plan.subject_id],
+    // 3. Get selected topics ONLY
+    const [topics] = await pool.query(
+      `SELECT id, title, difficulty FROM topics WHERE id IN (?)`,
+      [topicIds],
     );
 
-    if (!topics.length) {
-      return res.status(400).json({ error: "No topics found" });
+    if (topics.length === 0) {
+      return res.status(400).json({ error: "No valid topics found" });
     }
 
-    // 3. Delete old tasks
+    // 4. Clean topics
+    const cleanTopics = topics
+      .filter((t) => t && t.title)
+      .map((t) => ({
+        id: t.id,
+        title: t.title.trim(),
+        difficulty: t.difficulty || "medium",
+      }));
+
+    // 🚨 Clear old tasks
     await pool.execute(`DELETE FROM study_tasks WHERE plan_id = ?`, [planId]);
 
-    // 4. Calculate days
+    // 5. Calculate totalDays
     let totalDays;
 
     if (plan.exam_date) {
@@ -80,27 +98,17 @@ exports.generateDailyTasks = async (req, res) => {
 
       totalDays = Math.ceil((examDate - today) / (1000 * 60 * 60 * 24));
 
-      if (totalDays <= 0) totalDays = topics.length;
+      if (totalDays <= 0) totalDays = cleanTopics.length;
     } else {
-      totalDays = topics.length;
+      totalDays = cleanTopics.length;
     }
 
-    if (topics.length < totalDays) {
-      totalDays = topics.length;
+    // compress if fewer topics
+    if (cleanTopics.length < totalDays) {
+      totalDays = cleanTopics.length;
     }
 
-    // 5. CLEAN TOPICS (IMPORTANT FIX)
-    const cleanTopics = topics
-      .filter((t) => t && t.title)
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        difficulty: t.difficulty || "medium",
-      }));
-
-    console.log("TOPICS INPUT:", cleanTopics);
-
-    // 6. AI + fallback
+    // 6. AI PLAN
     let aiPlan;
 
     try {
@@ -112,6 +120,7 @@ exports.generateDailyTasks = async (req, res) => {
     } catch (err) {
       console.error("AI failed:", err.message);
 
+      // ✅ FALLBACK
       aiPlan = cleanTopics.map((t, i) => ({
         day: i,
         topics: [t.title],
@@ -120,21 +129,16 @@ exports.generateDailyTasks = async (req, res) => {
 
     console.log("AI PLAN:", JSON.stringify(aiPlan, null, 2));
 
-    // 7. Insert tasks safely
+    // 7. Save tasks
     const tasks = [];
 
     for (const dayPlan of aiPlan) {
-      if (!dayPlan || !Array.isArray(dayPlan.topics)) {
-        console.warn("Invalid dayPlan:", dayPlan);
-        continue;
-      }
-
       const dayOffset = Number(dayPlan.day);
 
       if (isNaN(dayOffset)) continue;
 
       for (const topicName of dayPlan.topics) {
-        const topic = topics.find(
+        const topic = cleanTopics.find(
           (t) =>
             t.title.toLowerCase().trim() === topicName.toLowerCase().trim(),
         );
@@ -158,7 +162,6 @@ exports.generateDailyTasks = async (req, res) => {
       }
     }
 
-    // 8. RESPONSE
     res.json({
       message: "Study tasks generated",
       totalDays,
@@ -166,7 +169,6 @@ exports.generateDailyTasks = async (req, res) => {
       tasks,
     });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };

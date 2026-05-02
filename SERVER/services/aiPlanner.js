@@ -22,39 +22,48 @@ function validatePlan(plan) {
   return true;
 }
 
-exports.generatePlan = async (topics, days, dailyTime) => {
-  const prompt = `
-    You are a strict study planner.
+exports.generatePlan = async (topics, totalDays, dailyTime) => {
+  try {
+    const topicList = topics.map((t) => t.title).join(", ");
 
-    IMPORTANT RULES:
-    - Only use topics exactly as given
-    - Do NOT create new topics
-    - Do NOT break topics into subtopics
-    - Do NOT rename topics
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite-preview",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `
+    You are a study planner AI.
 
-    Available Topics:
-    ${topics.map((t) => `- ${t.title}`).join("\n")}
+    Topics:
+    ${topicList}
 
-    Return format:
+    Days available: ${totalDays}
+    Daily study time: ${dailyTime} minutes
+
+    Distribute the topics across the days.
+
+    Return STRICT JSON:
     [
     {
         "day": 0,
-        "topics": ["exact topic name here"]
+        "topics": ["topic name"]
     }
     ]
-    `;
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-  });
+              `,
+            },
+          ],
+        },
+      ],
+    });
 
-  const cleaned = cleanAIResponse(response.text);
+    const text = response.text.trim();
 
-  const parsed = JSON.parse(cleaned);
-
-  if (!validatePlan(parsed)) {
-    throw new Error("Invalid AI structure");
+    // try parsing
+    return JSON.parse(text);
+  } catch (err) {
+    console.error("AI parse failed:", err.message);
+    throw err;
   }
-
-  return parsed;
 };
