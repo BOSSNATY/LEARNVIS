@@ -95,3 +95,38 @@ exports.rephraseQuestionsAI = async (questions) => {
     return JSON.parse(text);
   });
 };
+
+exports.generateMicroLesson = async (concept, topic) => {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite-preview",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `
+    You are an expert tutor.
+
+    Explain the concept "${concept}" from the topic "${topic}" in a simple but deep way.
+
+    Requirements:
+    - 5–10 lines
+    - include intuition
+    - include one simple example
+    - avoid complex jargon
+    - student-friendly tone
+                `,
+            },
+          ],
+        },
+      ],
+    });
+
+    return response.text;
+  } catch (err) {
+    console.error("AI micro-lesson failed:", err.message);
+
+    return `Basic explanation of ${concept}: Review the definition and try simple examples.`;
+  }
+};

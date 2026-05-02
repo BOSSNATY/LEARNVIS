@@ -8,6 +8,8 @@ const {
 
 const { processMistakes } = require("../services/mistakeService");
 
+const { generateMicroLessons } = require("../services/microLessonService");
+
 exports.generateQuiz = async (req, res) => {
   const { topicId, mode } = req.body;
 
@@ -146,7 +148,12 @@ exports.submitQuiz = async (req, res) => {
     await updateLearningState(userId, quizId, score);
     await generateMicroLessons(userId, topicId);
     await processMistakes(userId, analysis);
-    // 7. Decide next step
+    // fetch topic name (optional but better AI quality)
+    const [topic] = await pool.execute(
+      `SELECT title FROM topics WHERE id = ?`,
+      [topicId],
+    );
+    await generateMicroLessons(userId, topicId, topic[0]?.title); // 7. Decide next step
     const nextAction = score >= 96 ? "MASTERED" : "RETRY_REQUIRED";
 
     res.json({
