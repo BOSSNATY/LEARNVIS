@@ -7,6 +7,7 @@ const subjectRoutes = require("./routes/subjectRoutes");
 const learningStateRoutes = require("./routes/learningStateRoutes");
 const topicRoutes = require("./routes/topicRoutes");
 const learningRoutes = require("./routes/learningRoutes");
+const studyPlanRoutes = require("./routes/studyPlanRoutes");
 
 require("dotenv").config();
 
@@ -20,6 +21,7 @@ app.use("/api/learningState", learningStateRoutes);
 app.use("/api/topics", topicRoutes);
 app.use("/api/learning", learningRoutes);
 app.use("/api/quiz", quizRoutes);
+app.use("/api/study-plans", studyPlanRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

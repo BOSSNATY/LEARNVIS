@@ -58,21 +58,31 @@ exports.getLearningState = async (req, res) => {
 };
 
 exports.updateLearningState = async (req, res) => {
-  const userId = req.user.userId;
-  const { topicId, progressPercent, masteryScore, status } = req.body;
+  const { topicId, status, progress_percent, mastery_score } = req.body;
+  const userId = req.user.id;
 
   try {
     await pool.execute(
-      `UPDATE learning_state 
-       SET progress_percent = ?, 
-           mastery_score = ?, 
-           status = ?
-       WHERE user_id = ? AND topic_id = ?`,
-      [progressPercent, masteryScore, status, userId, topicId],
+      `INSERT INTO learning_state 
+      (user_id, subject_id, topic_id, status, progress_percent, mastery_score)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        status = VALUES(status),
+        progress_percent = VALUES(progress_percent),
+        mastery_score = VALUES(mastery_score),
+        updated_at = CURRENT_TIMESTAMP`,
+      [
+        userId,
+        req.body.subjectId,
+        topicId,
+        status,
+        progress_percent,
+        mastery_score,
+      ],
     );
 
     res.json({ message: "Learning state updated" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };

@@ -61,92 +61,100 @@ exports.getQuiz = async (req, res) => {
 
   try {
     const [questions] = await pool.execute(
-      "SELECT * FROM questions WHERE quiz_id = ?",
+      `SELECT q.*, o.id as option_id, o.option_text, o.is_correct
+       FROM questions q
+       JOIN question_options o ON q.id = o.question_id
+       WHERE q.quiz_id = ?`,
       [quizId],
     );
 
-    for (let q of questions) {
-      const [options] = await pool.execute(
-        "SELECT id, option_text FROM question_options WHERE question_id = ?",
-        [q.id],
-      );
-      q.options = options;
-    }
-
-    res.json({ questions });
+    res.json(questions);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
 exports.submitQuiz = async (req, res) => {
-  const userId = req.user.userId;
   const { quizId } = req.params;
-  const { answers } = req.body;
-  // [{questionId, selectedOptionId}]
-
-  const connection = await pool.getConnection();
+  const { attemptId, answers } = req.body;
+  const userId = req.user.id;
 
   try {
-    await connection.beginTransaction();
+    let correct = 0;
 
-    // Create attempt
-    const [attemptRes] = await connection.execute(
-      "INSERT INTO quiz_attempts (user_id, quiz_id) VALUES (?, ?)",
-      [userId, quizId],
-    );
-
-    const attemptId = attemptRes.insertId;
-
-    let correctCount = 0;
-
-    for (let ans of answers) {
-      const [[correctOption]] = await connection.execute(
-        "SELECT id FROM question_options WHERE question_id = ? AND is_correct = 1",
+    for (const ans of answers) {
+      const [question] = await pool.execute(
+        "SELECT * FROM question_options WHERE question_id = ?",
         [ans.questionId],
       );
 
+      const correctOption = question.find((q) => q.is_correct === 1);
+
       const isCorrect = correctOption.id === ans.selectedOptionId;
 
-      if (isCorrect) correctCount++;
+      if (isCorrect) correct++;
 
-      await connection.execute(
+      await pool.execute(
         `INSERT INTO answers 
-        (attempt_id, question_id, selected_option_id, is_correct, mistake_reason, concept_tag) 
-        VALUES (?, ?, ?, ?, ?, ?)`,
+        (attempt_id, question_id, selected_option_id, is_correct, concept_tag)
+        VALUES (?, ?, ?, ?, ?)`,
         [
           attemptId,
           ans.questionId,
           ans.selectedOptionId,
           isCorrect,
-          isCorrect ? null : "Concept misunderstanding",
-          "general",
+          ans.conceptTag || null,
+        ],
+      );
+      await pool.execute(
+        `UPDATE learning_state 
+        SET mastery_score = ?,
+       progress_percent = ?,
+       status = ?
+        WHERE user_id = ? AND topic_id = (
+      SELECT topic_id FROM quizzes WHERE id = ?
+   )`,
+        [
+          score,
+          Math.min(100, score),
+          score >= 96 ? "mastered" : "practicing",
+          userId,
+          quizId,
         ],
       );
     }
 
-    const score = Math.round((correctCount / answers.length) * 100);
+    const score = Math.round((correct / answers.length) * 100);
 
-    // Check mastery
     const passed = score >= 96;
 
-    await connection.execute(
-      "UPDATE quiz_attempts SET score = ?, passed = ?, finished_at = NOW() WHERE id = ?",
+    // update attempt
+    await pool.execute(
+      `UPDATE quiz_attempts 
+       SET score = ?, passed = ?, finished_at = NOW()
+       WHERE id = ?`,
       [score, passed, attemptId],
     );
 
-    await connection.commit();
+    // update learning state
+    await pool.execute(
+      `UPDATE learning_state 
+       SET mastery_score = ?, status = ?
+       WHERE user_id = ? AND topic_id = (
+         SELECT topic_id FROM quizzes WHERE id = ?
+       )`,
+      [score, passed ? "mastered" : "practicing", userId, quizId],
+    );
 
     res.json({
       score,
       passed,
-      nextStep: passed ? "MASTERED" : "RETRY",
+      message: passed
+        ? "Mastery achieved 🎉"
+        : "Not yet mastered. Continue learning.",
     });
   } catch (err) {
-    await connection.rollback();
     res.status(500).json({ error: err.message });
-  } finally {
-    connection.release();
   }
 };
 
@@ -202,29 +210,135 @@ exports.retryQuiz = async (req, res) => {
 
 exports.getResult = async (req, res) => {
   const { quizId } = req.params;
-  const userId = req.user.userId;
+  const userId = req.user.id;
 
   try {
-    const [attempts] = await pool.execute(
-      "SELECT * FROM quiz_attempts WHERE quiz_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1",
+    const [result] = await pool.execute(
+      `SELECT * FROM quiz_attempts 
+       WHERE quiz_id = ? AND user_id = ?
+       ORDER BY id DESC LIMIT 1`,
       [quizId, userId],
     );
 
-    if (attempts.length === 0) {
-      return res.status(404).json({ error: "No attempt found" });
-    }
+    res.json(result[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
-    const attempt = attempts[0];
+exports.startAttempt = async (req, res) => {
+  const { quizId } = req.params;
+  const userId = req.user.id;
 
-    const [mistakes] = await pool.execute(
-      "SELECT question_id, mistake_reason FROM answers WHERE attempt_id = ? AND is_correct = 0",
-      [attempt.id],
+  try {
+    // get attempt number
+    const [attempts] = await pool.execute(
+      "SELECT COUNT(*) as count FROM quiz_attempts WHERE user_id = ? AND quiz_id = ?",
+      [userId, quizId],
+    );
+
+    const roundNumber = attempts[0].count + 1;
+
+    const [result] = await pool.execute(
+      `INSERT INTO quiz_attempts (user_id, quiz_id, round_number, score, passed)
+       VALUES (?, ?, ?, 0, 0)`,
+      [userId, quizId, roundNumber],
     );
 
     res.json({
-      score: attempt.score,
-      passed: attempt.passed,
-      mistakes,
+      attemptId: result.insertId,
+      round: roundNumber,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getAttempts = async (req, res) => {
+  const { quizId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const [attempts] = await pool.execute(
+      `SELECT * FROM quiz_attempts
+       WHERE quiz_id = ? AND user_id = ?
+       ORDER BY round_number ASC`,
+      [quizId, userId],
+    );
+
+    res.json(attempts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.generateRemasteredQuiz = async (req, res) => {
+  const { quizId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // 1. Get last attempt mistakes
+    const [mistakes] = await pool.execute(
+      `SELECT a.*, q.question_text, q.cognitive_category
+       FROM answers a
+       JOIN questions q ON a.question_id = q.id
+       JOIN quiz_attempts qa ON a.attempt_id = qa.id
+       WHERE qa.quiz_id = ? AND qa.user_id = ? AND a.is_correct = 0`,
+      [quizId, userId],
+    );
+
+    // 2. Get quiz topic
+    const [quiz] = await pool.execute(
+      `SELECT topic_id FROM quizzes WHERE id = ?`,
+      [quizId],
+    );
+
+    const topicId = quiz[0]?.topic_id;
+
+    if (!topicId) {
+      return res.status(404).json({ error: "Quiz not found" });
+    }
+
+    // 3. HERE: AI generation placeholder (Gemini/OpenAI later)
+    // For now, we simulate structure
+
+    const remasteredQuiz = {
+      topicId,
+      basedOnMistakes: mistakes.map((m) => m.concept_tag),
+      questions: mistakes.map((m, index) => ({
+        question_text: `Rephrased version of: ${m.question_text}`,
+        cognitive_category: m.cognitive_category,
+        options: ["Option A", "Option B", "Option C", "Option D"],
+      })),
+    };
+
+    res.json({
+      message: "Remastered quiz generated",
+      quiz: remasteredQuiz,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getMasteryStatus = async (req, res) => {
+  const { quizId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const [result] = await pool.execute(
+      `SELECT MAX(score) as bestScore
+       FROM quiz_attempts
+       WHERE quiz_id = ? AND user_id = ?`,
+      [quizId, userId],
+    );
+
+    const bestScore = result[0].bestScore || 0;
+
+    res.json({
+      mastered: bestScore >= 96,
+      score: bestScore,
+      remaining: Math.max(0, 96 - bestScore),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
