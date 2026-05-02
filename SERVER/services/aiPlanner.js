@@ -24,28 +24,25 @@ function validatePlan(plan) {
 
 exports.generatePlan = async (topics, days, dailyTime) => {
   const prompt = `
-    You are a study planner AI.
+    You are a strict study planner.
 
-    Return ONLY valid JSON.
-    Do NOT include:
-    - explanations
-    - text
-    - markdown
-    - backticks
+    IMPORTANT RULES:
+    - Only use topics exactly as given
+    - Do NOT create new topics
+    - Do NOT break topics into subtopics
+    - Do NOT rename topics
 
-    STRICT FORMAT:
+    Available Topics:
+    ${topics.map((t) => `- ${t.title}`).join("\n")}
+
+    Return format:
     [
-    { "day": 0, "topics": ["topic name"] },
-    { "day": 1, "topics": ["topic name"] }
+    {
+        "day": 0,
+        "topics": ["exact topic name here"]
+    }
     ]
-
-    Topics:
-    ${topics.map((t) => `- ${t.title} (${t.difficulty})`).join("\n")}
-
-    Days: ${days}
-    Daily time: ${dailyTime} minutes
     `;
-
   const response = await ai.models.generateContent({
     model: "gemini-3.1-flash-lite-preview",
     contents: [{ role: "user", parts: [{ text: prompt }] }],

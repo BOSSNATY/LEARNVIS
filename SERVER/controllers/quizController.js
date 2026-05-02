@@ -2,6 +2,11 @@ const pool = require("../config/db");
 const { generateQuizAI } = require("../services/aiService");
 const { rephraseQuestionsAI } = require("../services/aiService");
 
+const {
+  handleMistakes,
+  updateLearningState,
+} = require("../services/quizService");
+
 exports.generateQuiz = async (req, res) => {
   const { topicId, mode } = req.body;
 
@@ -75,83 +80,79 @@ exports.getQuiz = async (req, res) => {
 };
 
 exports.submitQuiz = async (req, res) => {
-  const { quizId } = req.params;
-  const { attemptId, answers } = req.body;
-  const userId = req.user.id;
+  const userId = req.user.userId;
+  const { quizId, answers } = req.body;
 
   try {
+    // 1. Get questions + correct answers
+    const [questions] = await pool.execute(
+      `SELECT q.id AS question_id, o.id AS option_id, o.is_correct
+       FROM questions q
+       JOIN question_options o ON q.id = o.question_id
+       WHERE q.quiz_id = ?`,
+      [quizId],
+    );
+
+    // 2. Evaluate answers
     let correct = 0;
+    const analysis = [];
 
     for (const ans of answers) {
-      const [question] = await pool.execute(
-        "SELECT * FROM question_options WHERE question_id = ?",
-        [ans.questionId],
+      const qOptions = questions.filter(
+        (q) => q.question_id === ans.questionId,
       );
 
-      const correctOption = question.find((q) => q.is_correct === 1);
+      const correctOption = qOptions.find((o) => o.is_correct === 1);
 
-      const isCorrect = correctOption.id === ans.selectedOptionId;
+      const isCorrect = correctOption?.option_id === ans.optionId;
 
       if (isCorrect) correct++;
 
+      analysis.push({
+        questionId: ans.questionId,
+        isCorrect,
+        concept: ans.concept_tag || null,
+      });
+
+      // 3. Save answer
       await pool.execute(
-        `INSERT INTO answers 
+        `INSERT INTO answers
         (attempt_id, question_id, selected_option_id, is_correct, concept_tag)
         VALUES (?, ?, ?, ?, ?)`,
         [
-          attemptId,
+          ans.attemptId,
           ans.questionId,
-          ans.selectedOptionId,
+          ans.optionId,
           isCorrect,
-          ans.conceptTag || null,
-        ],
-      );
-      await pool.execute(
-        `UPDATE learning_state 
-        SET mastery_score = ?,
-       progress_percent = ?,
-       status = ?
-        WHERE user_id = ? AND topic_id = (
-      SELECT topic_id FROM quizzes WHERE id = ?
-   )`,
-        [
-          score,
-          Math.min(100, score),
-          score >= 96 ? "mastered" : "practicing",
-          userId,
-          quizId,
+          ans.concept_tag,
         ],
       );
     }
 
     const score = Math.round((correct / answers.length) * 100);
 
-    const passed = score >= 96;
-
-    // update attempt
-    await pool.execute(
-      `UPDATE quiz_attempts 
-       SET score = ?, passed = ?, finished_at = NOW()
-       WHERE id = ?`,
-      [score, passed, attemptId],
+    // 4. Save attempt result
+    const [attempt] = await pool.execute(
+      `INSERT INTO quiz_attempts
+      (user_id, quiz_id, score, passed)
+      VALUES (?, ?, ?, ?)`,
+      [userId, quizId, score, score >= 96],
     );
 
-    // update learning state
-    await pool.execute(
-      `UPDATE learning_state 
-       SET mastery_score = ?, status = ?
-       WHERE user_id = ? AND topic_id = (
-         SELECT topic_id FROM quizzes WHERE id = ?
-       )`,
-      [score, passed ? "mastered" : "practicing", userId, quizId],
-    );
+    // 5. Analyze weaknesses
+    await handleMistakes(userId, analysis);
+
+    // 6. Update learning state
+    await updateLearningState(userId, quizId, score);
+
+    // 7. Decide next step
+    const nextAction = score >= 96 ? "MASTERED" : "RETRY_REQUIRED";
 
     res.json({
       score,
-      passed,
-      message: passed
-        ? "Mastery achieved 🎉"
-        : "Not yet mastered. Continue learning.",
+      correct,
+      total: answers.length,
+      nextAction,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

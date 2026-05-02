@@ -6,9 +6,22 @@ const { generatePlan } = require("../services/aiPlanner");
 // ==========================================
 exports.createStudyPlan = async (req, res) => {
   const { subjectId, examDate, dailyTimeMinutes } = req.body;
-  const userId = req.user.id;
+  const userId = req.user.userId;
 
   try {
+    // Check if plan already exists
+    const [existing] = await pool.execute(
+      `SELECT id FROM study_plans 
+   WHERE user_id = ? AND subject_id = ?`,
+      [userId, subjectId],
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({
+        error: "Study plan already exists for this subject",
+      });
+    }
+
     const [result] = await pool.execute(
       `INSERT INTO study_plans 
        (user_id, subject_id, exam_date, daily_time_minutes)
@@ -30,7 +43,7 @@ exports.createStudyPlan = async (req, res) => {
 // ==========================================
 exports.generateDailyTasks = async (req, res) => {
   const { planId } = req.params;
-  const userId = req.user.id;
+  const userId = req.user.userId;
 
   try {
     // 1. Get plan
@@ -45,20 +58,20 @@ exports.generateDailyTasks = async (req, res) => {
 
     const plan = plans[0];
 
-    // 2. Get topics for this subject
+    // 2. Get topics (IMPORTANT: full data)
     const [topics] = await pool.execute(
-      `SELECT id FROM topics WHERE subject_id = ?`,
+      `SELECT id, title, difficulty FROM topics WHERE subject_id = ?`,
       [plan.subject_id],
     );
 
-    if (topics.length === 0) {
+    if (!topics.length) {
       return res.status(400).json({ error: "No topics found" });
     }
 
-    // 🚨 Clear old tasks (important)
+    // 3. Delete old tasks
     await pool.execute(`DELETE FROM study_tasks WHERE plan_id = ?`, [planId]);
 
-    // 3. Calculate schedule
+    // 4. Calculate days
     let totalDays;
 
     if (plan.exam_date) {
@@ -69,56 +82,91 @@ exports.generateDailyTasks = async (req, res) => {
 
       if (totalDays <= 0) totalDays = topics.length;
     } else {
-      // No exam → flexible plan
       totalDays = topics.length;
     }
 
-    // If content is small → compress plan
     if (topics.length < totalDays) {
       totalDays = topics.length;
     }
 
-    // 4. Distribute topics across days
-    const tasks = [];
+    // 5. CLEAN TOPICS (IMPORTANT FIX)
+    const cleanTopics = topics
+      .filter((t) => t && t.title)
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        difficulty: t.difficulty || "medium",
+      }));
 
-    // 1. Ask AI to create plan
+    console.log("TOPICS INPUT:", cleanTopics);
+
+    // 6. AI + fallback
     let aiPlan;
 
     try {
-      aiPlan = await generatePlan(topics, totalDays, plan.daily_time_minutes);
+      aiPlan = await generatePlan(
+        cleanTopics,
+        totalDays,
+        plan.daily_time_minutes,
+      );
     } catch (err) {
       console.error("AI failed:", err.message);
 
-      // ✅ FALLBACK LOGIC (SAFE MODE)
-      aiPlan = topics.map((t, i) => ({
+      aiPlan = cleanTopics.map((t, i) => ({
         day: i,
         topics: [t.title],
       }));
     }
 
-    // 2. Save AI result into DB
-    for (const dayPlan of aiPlan) {
-      for (const topicName of dayPlan.topics) {
-        const topic = topics.find((t) => t.title === topicName);
+    console.log("AI PLAN:", JSON.stringify(aiPlan, null, 2));
 
-        if (!topic) continue;
+    // 7. Insert tasks safely
+    const tasks = [];
+
+    for (const dayPlan of aiPlan) {
+      if (!dayPlan || !Array.isArray(dayPlan.topics)) {
+        console.warn("Invalid dayPlan:", dayPlan);
+        continue;
+      }
+
+      const dayOffset = Number(dayPlan.day);
+
+      if (isNaN(dayOffset)) continue;
+
+      for (const topicName of dayPlan.topics) {
+        const topic = topics.find(
+          (t) =>
+            t.title.toLowerCase().trim() === topicName.toLowerCase().trim(),
+        );
+
+        if (!topic) {
+          console.warn("Topic not found:", topicName);
+          continue;
+        }
 
         await pool.execute(
           `INSERT INTO study_tasks 
-       (plan_id, topic_id, scheduled_date)
-       VALUES (?, ?, DATE_ADD(CURDATE(), INTERVAL ? DAY))`,
-          [planId, topic.id, dayPlan.day],
+           (plan_id, topic_id, scheduled_date)
+           VALUES (?, ?, DATE_ADD(CURDATE(), INTERVAL ? DAY))`,
+          [planId, topic.id, dayOffset],
         );
+
+        tasks.push({
+          topicId: topic.id,
+          day: dayOffset,
+        });
       }
     }
 
+    // 8. RESPONSE
     res.json({
       message: "Study tasks generated",
       totalDays,
-      totalTopics: topics.length,
+      totalTopics: cleanTopics.length,
       tasks,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -127,7 +175,7 @@ exports.generateDailyTasks = async (req, res) => {
 // ✅ 3. GET MY STUDY PLANS
 // ==========================================
 exports.getMyPlans = async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user.userId;
 
   try {
     const [plans] = await pool.execute(
