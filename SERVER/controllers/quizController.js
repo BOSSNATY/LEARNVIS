@@ -1,221 +1,232 @@
 const pool = require("../config/db");
-const { GoogleGenAI } = require("@google/genai"); // Use the correct import
-require("dotenv").config();
+const { generateQuizAI } = require("../services/aiService");
+const { rephraseQuestionsAI } = require("../services/aiService");
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
-
-exports.generateAIQuiz = async (req, res) => {
-  const { topicId } = req.body;
-  const connection = await pool.getConnection();
+exports.generateQuiz = async (req, res) => {
+  const { topicId, mode } = req.body;
 
   try {
-    // 1. Get Topic Details
-    const [topics] = await connection.execute(
+    // 1. Get topic name
+    const [[topic]] = await pool.execute(
       "SELECT title FROM topics WHERE id = ?",
       [topicId],
     );
-    if (topics.length === 0)
-      return res.status(404).json({ error: "Topic not found" });
-    const topicTitle = topics[0].title;
 
-    // 2. Call Gemini using the new SDK syntax
-    const result = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `Generate a 5-question multiple choice quiz about "${topicTitle}". 
-                    Each question must have 4 options and one correct answer.
-                    Categorize each as: "conceptual", "calculation", or "application".
-                    Return valid JSON ONLY in this format:
-                    {
-                      "questions": [
-                        {
-                          "text": "string",
-                          "category": "conceptual/calculation/application",
-                          "options": [
-                            {"text": "string", "isCorrect": boolean}
-                          ]
-                        }
-                      ]
-                    }`,
-            },
-          ],
-        },
-      ],
+    if (!topic) return res.status(404).json({ error: "Topic not found" });
+
+    // 2. Decide difficulty & count
+    const difficulty = mode === "exam" ? "hard" : "medium";
+    const count = mode === "exam" ? 20 : 10;
+
+    // 3. AI generate questions
+    const questions = await generateQuizAI({
+      topic: topic.title,
+      difficulty,
+      count,
     });
 
-    // 3. Parse and Save
-    const aiResponse = JSON.parse(result.text);
-
-    await connection.beginTransaction();
-
-    const [quizResult] = await connection.execute(
-      'INSERT INTO quizzes (topic_id, generated_by) VALUES (?, "ai")',
+    // 4. Save quiz
+    const [quizRes] = await pool.execute(
+      "INSERT INTO quizzes (topic_id) VALUES (?)",
       [topicId],
     );
-    const quizId = quizResult.insertId;
 
-    for (const q of aiResponse.questions) {
-      const [qResult] = await connection.execute(
+    const quizId = quizRes.insertId;
+
+    // 5. Save questions
+    for (let q of questions) {
+      const [qRes] = await pool.execute(
         "INSERT INTO questions (quiz_id, question_text, cognitive_category) VALUES (?, ?, ?)",
-        [quizId, q.text, q.category],
+        [quizId, q.question, q.cognitive_category],
       );
-      const questionId = qResult.insertId;
 
-      for (const opt of q.options) {
-        await connection.execute(
+      const questionId = qRes.insertId;
+
+      for (let opt of q.options) {
+        await pool.execute(
           "INSERT INTO question_options (question_id, option_text, is_correct) VALUES (?, ?, ?)",
-          [questionId, opt.text, opt.isCorrect],
+          [questionId, opt.text, opt.is_correct],
         );
       }
     }
 
-    await connection.commit();
-    res.status(201).json({ message: "Quiz ready", quizId });
-  } catch (error) {
-    if (connection) await connection.rollback();
-    console.error("Learnvis Error:", error);
-    res.status(500).json({ error: "AI logic failed" });
-  } finally {
-    if (connection) connection.release();
+    res.json({ quizId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
+
+exports.getQuiz = async (req, res) => {
+  const { quizId } = req.params;
+
+  try {
+    const [questions] = await pool.execute(
+      "SELECT * FROM questions WHERE quiz_id = ?",
+      [quizId],
+    );
+
+    for (let q of questions) {
+      const [options] = await pool.execute(
+        "SELECT id, option_text FROM question_options WHERE question_id = ?",
+        [q.id],
+      );
+      q.options = options;
+    }
+
+    res.json({ questions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 exports.submitQuiz = async (req, res) => {
-  const { quizId, answers } = req.body;
-  const userId = req.user.userId; // From authMiddleware
+  const userId = req.user.userId;
+  const { quizId } = req.params;
+  const { answers } = req.body;
+  // [{questionId, selectedOptionId}]
+
   const connection = await pool.getConnection();
 
   try {
     await connection.beginTransaction();
 
-    // 1. Create a Quiz Attempt record
-    const [attemptResult] = await connection.execute(
+    // Create attempt
+    const [attemptRes] = await connection.execute(
       "INSERT INTO quiz_attempts (user_id, quiz_id) VALUES (?, ?)",
       [userId, quizId],
     );
-    const attemptId = attemptResult.insertId;
 
-    let totalCorrect = 0;
-    const resultsMetadata = [];
+    const attemptId = attemptRes.insertId;
 
-    // 2. Check each answer
-    for (const ans of answers) {
-      // Fetch the correct option and category for this question
-      const [qData] = await connection.execute(
-        `SELECT qo.id as correct_option_id, q.cognitive_category 
-                 FROM questions q 
-                 JOIN question_options qo ON q.id = qo.question_id 
-                 WHERE q.id = ? AND qo.is_correct = 1`,
+    let correctCount = 0;
+
+    for (let ans of answers) {
+      const [[correctOption]] = await connection.execute(
+        "SELECT id FROM question_options WHERE question_id = ? AND is_correct = 1",
         [ans.questionId],
       );
 
-      const isCorrect = qData[0].correct_option_id === ans.optionId;
-      if (isCorrect) totalCorrect++;
+      const isCorrect = correctOption.id === ans.selectedOptionId;
 
-      // Save the individual answer
+      if (isCorrect) correctCount++;
+
       await connection.execute(
-        "INSERT INTO answers (attempt_id, question_id, selected_option_id, is_correct) VALUES (?, ?, ?, ?)",
-        [attemptId, ans.questionId, ans.optionId, isCorrect],
+        `INSERT INTO answers 
+        (attempt_id, question_id, selected_option_id, is_correct, mistake_reason, concept_tag) 
+        VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          attemptId,
+          ans.questionId,
+          ans.selectedOptionId,
+          isCorrect,
+          isCorrect ? null : "Concept misunderstanding",
+          "general",
+        ],
       );
-
-      resultsMetadata.push({
-        questionId: ans.questionId,
-        category: qData[0].cognitive_category,
-        isCorrect,
-      });
     }
 
-    // 3. Finalize the score
-    const finalScore = (totalCorrect / answers.length) * 100;
+    const score = Math.round((correctCount / answers.length) * 100);
+
+    // Check mastery
+    const passed = score >= 96;
+
     await connection.execute(
-      "UPDATE quiz_attempts SET score = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [finalScore, attemptId],
+      "UPDATE quiz_attempts SET score = ?, passed = ?, finished_at = NOW() WHERE id = ?",
+      [score, passed, attemptId],
     );
 
     await connection.commit();
 
-    res.status(200).json({
-      message: "Quiz submitted successfully",
-      attemptId,
-      score: finalScore,
-      breakdown: resultsMetadata,
+    res.json({
+      score,
+      passed,
+      nextStep: passed ? "MASTERED" : "RETRY",
     });
-  } catch (error) {
+  } catch (err) {
     await connection.rollback();
-    console.error("Submission Error:", error);
-    res.status(500).json({ error: "Failed to submit quiz" });
+    res.status(500).json({ error: err.message });
   } finally {
     connection.release();
   }
 };
-exports.getAIAnalysis = async (req, res) => {
+
+exports.retryQuiz = async (req, res) => {
   const { attemptId } = req.params;
-  const connection = await pool.getConnection();
 
   try {
-    // 1. Fetch the attempt data + question categories
-    const [results] = await connection.execute(
-      `
-            SELECT q.question_text, q.cognitive_category, a.is_correct, t.title as topic_title
-            FROM answers a
-            JOIN questions q ON a.question_id = q.id
-            JOIN quiz_attempts qa ON a.attempt_id = qa.id
-            JOIN topics t ON q.quiz_id = t.id -- Adjusting for your schema
-            WHERE a.attempt_id = ?`,
+    // 1. Get wrong questions
+    const [wrong] = await pool.execute(
+      `SELECT q.id, q.question_text 
+       FROM answers a
+       JOIN questions q ON a.question_id = q.id
+       WHERE a.attempt_id = ? AND a.is_correct = 0`,
       [attemptId],
     );
 
-    if (results.length === 0)
-      return res.status(404).json({ error: "No data found for this attempt." });
+    if (!wrong.length) {
+      return res.json({ message: "Nothing to retry" });
+    }
 
-    const topic = results[0].topic_title;
+    // 2. AI rephrase
+    const rephrased = await rephraseQuestionsAI(wrong);
 
-    // 2. Prepare the payload for Gemini
-    const performanceSummary = results.map((r) => ({
-      question: r.question_text,
-      category: r.cognitive_category,
-      status: r.is_correct ? "Correct" : "Incorrect",
-    }));
-
-    // 3. Call Gemini 3.1 Flash Lite
-    const result = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `As an expert tutor, analyze these results for a quiz on "${topic}":
-                    ${JSON.stringify(performanceSummary)}
-                    
-                    Provide a JSON response with:
-                    1. "weakness": Identify exactly what the student is struggling with (e.g., "Applying formulas in multi-step problems").
-                    2. "improvement_tip": A specific actionable advice.
-                    3. "recommendation": Suggest if they should "Revisit Basics", "Practice More", or "Move to Advanced".`,
-            },
-          ],
-        },
-      ],
-    });
-
-    const analysis = JSON.parse(result.text);
-
-    // 4. Save analysis to the database
-    await connection.execute(
-      "INSERT INTO quiz_results (attempt_id, weakness_analysis, recommendation) VALUES (?, ?, ?)",
-      [attemptId, analysis.weakness, analysis.recommendation],
+    // 3. Create new quiz
+    const [quizRes] = await pool.execute(
+      "INSERT INTO quizzes (generated_by) VALUES ('ai')",
     );
 
-    res.json({ attemptId, ...analysis });
-  } catch (error) {
-    console.error("Analysis Error:", error);
-    res.status(500).json({ error: "Could not generate AI feedback." });
-  } finally {
-    connection.release();
+    const quizId = quizRes.insertId;
+
+    // 4. Save rephrased
+    for (let q of rephrased) {
+      const [qRes] = await pool.execute(
+        "INSERT INTO questions (quiz_id, question_text, cognitive_category) VALUES (?, ?, 'conceptual')",
+        [quizId, q.question],
+      );
+
+      const questionId = qRes.insertId;
+
+      for (let opt of q.options) {
+        await pool.execute(
+          "INSERT INTO question_options (question_id, option_text, is_correct) VALUES (?, ?, ?)",
+          [questionId, opt.text, opt.is_correct],
+        );
+      }
+    }
+
+    res.json({ quizId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getResult = async (req, res) => {
+  const { quizId } = req.params;
+  const userId = req.user.userId;
+
+  try {
+    const [attempts] = await pool.execute(
+      "SELECT * FROM quiz_attempts WHERE quiz_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1",
+      [quizId, userId],
+    );
+
+    if (attempts.length === 0) {
+      return res.status(404).json({ error: "No attempt found" });
+    }
+
+    const attempt = attempts[0];
+
+    const [mistakes] = await pool.execute(
+      "SELECT question_id, mistake_reason FROM answers WHERE attempt_id = ? AND is_correct = 0",
+      [attempt.id],
+    );
+
+    res.json({
+      score: attempt.score,
+      passed: attempt.passed,
+      mistakes,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };

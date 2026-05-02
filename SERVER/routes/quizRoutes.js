@@ -1,10 +1,14 @@
-// const express = require("express");
-// const router = express.Router();
-// const quizController = require("../controllers/quizController");
-// const auth = require("../middleware/authMiddleware");
+const express = require("express");
+const router = express.Router();
 
-// router.post("/generate", auth, quizController.generateAIQuiz);
-// router.post("/submit", auth, quizController.submitQuiz);
-// router.get("/analysis/:attemptId", auth, quizController.getAIAnalysis);
+const quizController = require("../controllers/quizController");
 
-// module.exports = router;
+const { authMiddleware } = require("../middleware/authMiddleware");
+
+router.post("/generate", authMiddleware, quizController);
+
+router.get("/:quizId", authMiddleware, quizController);
+
+router.post("/:quizId/submit", authMiddleware, quizController);
+
+module.exports = router;
