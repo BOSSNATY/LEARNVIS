@@ -14,18 +14,20 @@ function cleanAIResponse(text) {
 function validatePlan(plan) {
   if (!Array.isArray(plan)) return false;
 
-  for (const day of plan) {
-    if (typeof day.day !== "number") return false;
-    if (!Array.isArray(day.topics)) return false;
+  for (const item of plan) {
+    if (typeof item.day !== "number") return false;
+    if (typeof item.parentTopic !== "string") return false;
+    if (!Array.isArray(item.subtopics) && item.subtopics !== undefined)
+      return false;
   }
 
   return true;
 }
 
 exports.generatePlan = async (topics, totalDays, dailyTime) => {
-  try {
-    const topicList = topics.map((t) => t.title).join(", ");
+  const topicList = topics.map((t) => t.title).join(", ");
 
+  try {
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-lite-preview",
       contents: [
@@ -34,36 +36,57 @@ exports.generatePlan = async (topics, totalDays, dailyTime) => {
           parts: [
             {
               text: `
-    You are a study planner AI.
+    You are an expert AI learning strategist.
 
     Topics:
     ${topicList}
 
-    Days available: ${totalDays}
-    Daily study time: ${dailyTime} minutes
+    Constraints:
+    - Available days: ${totalDays}
+    - Daily study time: ${dailyTime} minutes
 
-    Distribute the topics across the days.
+    Rules:
+    - Respect ALL constraints if provided
+    - If constraints are strict (exam/duration), optimize within them
+    - If no constraints, design best learning flow for mastery
+    - Break topics into subtopics when needed
+    - Include learning, practice, revision, and quiz phases
+    - Avoid rigid patterns
+    - Focus on understanding, not speed
 
-    Return STRICT JSON:
+    Return ONLY valid JSON:
+
     [
     {
-        "day": 0,
-        "topics": ["topic name"]
+        "day": number,
+        "type": "learn" | "revision" | "quiz",
+        "parentTopic": "string",
+        "subtopics": ["string"]
     }
     ]
-              `,
+                `,
             },
           ],
         },
       ],
     });
 
-    const text = response.text.trim();
+    // 1. CLEAN OUTPUT
+    const cleaned = cleanAIResponse(response.text);
 
-    // try parsing
-    return JSON.parse(text);
+    // 2. PARSE JSON
+    const plan = JSON.parse(cleaned);
+
+    // 3. VALIDATE
+    if (!validatePlan(plan)) {
+      throw new Error("Invalid AI plan structure");
+    }
+
+    return plan;
+
+    // return JSON.parse(response.text.trim());
   } catch (err) {
-    console.error("AI parse failed:", err.message);
+    console.error("AI generation failed:", err.message);
     throw err;
   }
 };

@@ -41,43 +41,42 @@ exports.createStudyPlan = async (req, res) => {
 // ==========================================
 // ✅ 2. GENERATE DAILY TASKS
 // ==========================================
+
 exports.generateDailyTasks = async (req, res) => {
   const { planId } = req.params;
-  const userId = req.user.id;
-
+  const userId = req.user.userId;
   const { topicIds } = req.body;
 
   try {
-    // 1. Validate
+    // 1. Validation
     if (!topicIds || topicIds.length === 0) {
       return res.status(400).json({
         error: "Please select at least one topic",
       });
     }
 
-    // 2. Get plan
+    // 2. Get study plan
     const [plans] = await pool.execute(
       `SELECT * FROM study_plans WHERE id = ? AND user_id = ?`,
       [planId, userId],
     );
 
-    if (plans.length === 0) {
+    if (!plans.length) {
       return res.status(404).json({ error: "Plan not found" });
     }
 
     const plan = plans[0];
 
-    // 3. Get selected topics ONLY
+    // 3. Get topics
     const [topics] = await pool.query(
       `SELECT id, title, difficulty FROM topics WHERE id IN (?)`,
       [topicIds],
     );
 
-    if (topics.length === 0) {
+    if (!topics.length) {
       return res.status(400).json({ error: "No valid topics found" });
     }
 
-    // 4. Clean topics
     const cleanTopics = topics
       .filter((t) => t && t.title)
       .map((t) => ({
@@ -86,10 +85,10 @@ exports.generateDailyTasks = async (req, res) => {
         difficulty: t.difficulty || "medium",
       }));
 
-    // 🚨 Clear old tasks
+    // 4. Clear old tasks
     await pool.execute(`DELETE FROM study_tasks WHERE plan_id = ?`, [planId]);
 
-    // 5. Calculate totalDays
+    // 5. Determine totalDays (SMART MODE)
     let totalDays;
 
     if (plan.exam_date) {
@@ -98,17 +97,15 @@ exports.generateDailyTasks = async (req, res) => {
 
       totalDays = Math.ceil((examDate - today) / (1000 * 60 * 60 * 24));
 
-      if (totalDays <= 0) totalDays = cleanTopics.length;
+      totalDays = Math.max(totalDays, 1);
+    } else if (plan.duration_days) {
+      totalDays = plan.duration_days;
     } else {
-      totalDays = cleanTopics.length;
+      // AI decides pacing
+      totalDays = Math.max(cleanTopics.length * 2, 3);
     }
 
-    // compress if fewer topics
-    if (cleanTopics.length < totalDays) {
-      totalDays = cleanTopics.length;
-    }
-
-    // 6. AI PLAN
+    // 6. AI PLAN GENERATION
     let aiPlan;
 
     try {
@@ -120,56 +117,58 @@ exports.generateDailyTasks = async (req, res) => {
     } catch (err) {
       console.error("AI failed:", err.message);
 
-      // ✅ FALLBACK
+      // SAFE FALLBACK
       aiPlan = cleanTopics.map((t, i) => ({
         day: i,
-        topics: [t.title],
+        type: "learn",
+        parentTopic: t.title,
+        subtopics: [t.title],
       }));
     }
 
     console.log("AI PLAN:", JSON.stringify(aiPlan, null, 2));
 
-    // 7. Save tasks
+    // 7. SAVE TO DB
     const tasks = [];
 
     for (const dayPlan of aiPlan) {
       const dayOffset = Number(dayPlan.day);
-
       if (isNaN(dayOffset)) continue;
 
-      for (const topicName of dayPlan.topics) {
-        const topic = cleanTopics.find(
-          (t) =>
-            t.title.toLowerCase().trim() === topicName.toLowerCase().trim(),
-        );
+      const topic = cleanTopics.find(
+        (t) =>
+          t.title.toLowerCase().trim() ===
+          (dayPlan.parentTopic || "").toLowerCase().trim(),
+      );
 
-        if (!topic) {
-          console.warn("Topic not found:", topicName);
-          continue;
-        }
-
-        await pool.execute(
-          `INSERT INTO study_tasks 
-           (plan_id, topic_id, scheduled_date)
-           VALUES (?, ?, DATE_ADD(CURDATE(), INTERVAL ? DAY))`,
-          [planId, topic.id, dayOffset],
-        );
-
-        tasks.push({
-          topicId: topic.id,
-          day: dayOffset,
-        });
+      if (!topic) {
+        console.warn("Skipping invalid topic:", dayPlan.parentTopic);
+        continue;
       }
+
+      await pool.execute(
+        `INSERT INTO study_tasks 
+        (plan_id, topic_id, scheduled_date)
+        VALUES (?, ?, DATE_ADD(CURDATE(), INTERVAL ? DAY))`,
+        [planId, topic.id, dayOffset],
+      );
+
+      tasks.push({
+        topicId: topic.id,
+        day: dayOffset,
+        type: dayPlan.type || "learn",
+        subtopics: dayPlan.subtopics || [],
+      });
     }
 
-    res.json({
+    return res.json({
       message: "Study tasks generated",
       totalDays,
       totalTopics: cleanTopics.length,
       tasks,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
