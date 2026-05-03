@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import StudentLayout from "../../components/StudentLayout";
 import { useApp } from "../../context/AppContext";
+import { api, setSession } from "../../services/api";
 import {
   Camera,
   Mail,
@@ -14,7 +15,7 @@ import {
 } from "lucide-react";
 
 const Profile = () => {
-  const { currentUser, subjects, results } = useApp();
+  const { currentUser, setCurrentUser, subjects, results } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: currentUser.name,
@@ -29,6 +30,22 @@ const Profile = () => {
     { name: "Perfect Score", icon: Award, color: "green", date: "2024-02-20" },
     { name: "7-Day Streak", icon: BookOpen, color: "blue", date: "2024-03-10" },
   ];
+
+  const saveProfile = async () => {
+    try {
+      await api.updateMe({ name: formData.name, email: formData.email });
+      const updated = {
+        ...currentUser,
+        name: formData.name,
+        email: formData.email,
+      };
+      setCurrentUser(updated);
+      setSession({ user: updated });
+      setIsEditing(false);
+    } catch (error) {
+      alert(error.message);
+    }
+  };
 
   return (
     <StudentLayout>
@@ -157,7 +174,7 @@ const Profile = () => {
                   ></textarea>
                 </div>
                 <button
-                  onClick={() => setIsEditing(false)}
+                  onClick={saveProfile}
                   className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold flex items-center gap-2 transition-all"
                 >
                   <Save size={18} />

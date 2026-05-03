@@ -3,7 +3,7 @@ import StudentLayout from "../../components/StudentLayout";
 import { useApp } from "../../context/AppContext";
 import { api } from "../../services/api";
 
-const Predictions = () => {
+const Prediction = () => {
   const { subjects } = useApp();
   const [predictions, setPredictions] = useState([]);
   useEffect(() => {
@@ -53,4 +53,4 @@ const Predictions = () => {
   );
 };
 
-export default Predictions;
+export default Prediction;

@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StudentLayout from "../../components/StudentLayout";
 import { useApp } from "../../context/AppContext";
+import { api } from "../../services/api";
 import {
   Lightbulb,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
 const Recommendations = () => {
   const navigate = useNavigate();
   const { subjects, getTopicsBySubject } = useApp();
+  const [apiRecommendations, setApiRecommendations] = useState([]);
 
   const recommendations = [
     {
@@ -62,6 +64,31 @@ const Recommendations = () => {
       progress: 0,
     },
   ];
+
+  useEffect(() => {
+    api
+      .recommendations()
+      .then((data) => {
+        const rows = data.weakTopics || data.recommendations || data;
+        setApiRecommendations(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => setApiRecommendations([]));
+  }, []);
+
+  const displayRecommendations = apiRecommendations.length
+    ? apiRecommendations.map((item) => ({
+        type: item.priority || "weakness",
+        title: item.title || item.reason || "Recommended next step",
+        subject: item.subject || item.subject_name || "Learning path",
+        topic: item.topic || item.topic_title || item.title || "Review topic",
+        reason:
+          item.reason ||
+          `${item.mistake_count || item.frequency || ""} weak signals detected`,
+        priority: item.priority || (item.mistake_count > 2 ? "high" : "medium"),
+        progress: item.progress || 0,
+        topicId: item.topic_id || item.topicId,
+      }))
+    : recommendations;
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -128,10 +155,16 @@ const Recommendations = () => {
 
         {/* Recommendations List */}
         <div className="space-y-4">
-          {recommendations.map((rec, index) => (
+          {displayRecommendations.map((rec, index) => (
             <div
               key={index}
-              onClick={() => navigate("/student/subjects/1")}
+              onClick={() =>
+                navigate(
+                  rec.topicId
+                    ? `/student/learn/${rec.topicId}`
+                    : "/student/subjects",
+                )
+              }
               className={`bg-[#111827]/40 backdrop-blur-xl border rounded-2xl p-5 hover:border-blue-500/30 cursor-pointer transition-all group ${getPriorityColor(
                 rec.priority,
               )}`}

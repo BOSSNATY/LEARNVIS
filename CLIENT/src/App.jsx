@@ -30,7 +30,7 @@ import StudentCalendar from "./pages/student/Calendar";
 import StudentContentUpload from "./pages/student/ContentUpload";
 import StudentRevision from "./pages/student/Revision";
 import StudentMistakes from "./pages/student/Mistakes";
-import StudentPredictions from "./pages/student/Predictions";
+import Prediction from "./pages/student/Prediction";
 import StudentMockExam, {
   MockExamResult,
   MockExamTake,
@@ -118,7 +118,7 @@ function App() {
           <Route path="/student/results" element={<StudentResults />} />
           <Route path="/student/analytics" element={<StudentAnalytics />} />
           <Route path="/student/mistakes" element={<StudentMistakes />} />
-          <Route path="/student/predictions" element={<StudentPredictions />} />
+          <Route path="/student/prediction" element={<Prediction />} />
           <Route
             path="/student/recommendations"
             element={<StudentRecommendations />}
