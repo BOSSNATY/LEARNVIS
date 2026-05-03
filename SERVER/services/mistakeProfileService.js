@@ -10,7 +10,7 @@ async function updateMistakeProfile(userId, topicId, conceptTag) {
     `INSERT INTO mistake_profiles (user_id, topic_id, concept_tag, frequency)
      VALUES (?, ?, ?, 1)
      ON DUPLICATE KEY UPDATE frequency = frequency + 1, last_seen = NOW()`,
-    [userId, topicId, tag]
+    [userId, topicId, tag],
   );
 }
 
@@ -24,7 +24,7 @@ async function getWeakConcepts(userId, topicId = null) {
        FROM mistake_profiles
        WHERE user_id = ? AND topic_id = ?
        ORDER BY frequency DESC`,
-      [userId, topicId]
+      [userId, topicId],
     );
     return rows;
   }
@@ -37,7 +37,7 @@ async function getWeakConcepts(userId, topicId = null) {
      WHERE mp.user_id = ?
      GROUP BY mp.concept_tag, mp.topic_id
      ORDER BY frequency DESC`,
-    [userId]
+    [userId],
   );
   return rows;
 }

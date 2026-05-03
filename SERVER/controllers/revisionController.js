@@ -13,7 +13,7 @@ exports.getDueRevisions = async (req, res) => {
        LEFT JOIN subjects s ON t.subject_id = s.id
        WHERE r.user_id = ? AND r.next_review_date <= CURDATE()
        ORDER BY r.next_review_date ASC`,
-      [userId]
+      [userId],
     );
 
     res.json({
@@ -35,7 +35,7 @@ exports.scheduleRevision = async (req, res) => {
   try {
     const [[existing]] = await pool.execute(
       "SELECT id, interval_days, review_count FROM revisions WHERE user_id = ? AND topic_id = ?",
-      [userId, topicId]
+      [userId, topicId],
     );
 
     // Spaced repetition intervals: 1 → 3 → 7 → 14 → 30 days
@@ -50,7 +50,7 @@ exports.scheduleRevision = async (req, res) => {
          SET interval_days = ?, next_review_date = DATE_ADD(CURDATE(), INTERVAL ? DAY),
              review_count = review_count + 1, updated_at = NOW()
          WHERE id = ?`,
-        [nextInterval, nextInterval, existing.id]
+        [nextInterval, nextInterval, existing.id],
       );
 
       return res.json({
@@ -63,10 +63,12 @@ exports.scheduleRevision = async (req, res) => {
     await pool.execute(
       `INSERT INTO revisions (user_id, topic_id, interval_days, next_review_date, review_count)
        VALUES (?, ?, 1, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 0)`,
-      [userId, topicId]
+      [userId, topicId],
     );
 
-    res.status(201).json({ message: "Revision scheduled", nextReviewInDays: 1 });
+    res
+      .status(201)
+      .json({ message: "Revision scheduled", nextReviewInDays: 1 });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -81,7 +83,7 @@ exports.completeRevision = async (req, res) => {
   try {
     const [[revision]] = await pool.execute(
       "SELECT * FROM revisions WHERE id = ? AND user_id = ?",
-      [revisionId, userId]
+      [revisionId, userId],
     );
     if (!revision) return res.status(404).json({ error: "Revision not found" });
 
@@ -99,7 +101,7 @@ exports.completeRevision = async (req, res) => {
        SET interval_days = ?, next_review_date = DATE_ADD(CURDATE(), INTERVAL ? DAY),
            review_count = ?, updated_at = NOW()
        WHERE id = ?`,
-      [nextInterval, nextInterval, nextIdx, revisionId]
+      [nextInterval, nextInterval, nextIdx, revisionId],
     );
 
     res.json({ message: "Revision complete", nextReviewInDays: nextInterval });
@@ -120,7 +122,7 @@ exports.getRevisionHistory = async (req, res) => {
        LEFT JOIN subjects s ON t.subject_id = s.id
        WHERE r.user_id = ?
        ORDER BY r.updated_at DESC`,
-      [userId]
+      [userId],
     );
     res.json(history);
   } catch (err) {

@@ -4,29 +4,99 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-function cleanAIResponse(text) {
-  return text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
-}
+// 🔁 SAFE WRAPPER (put here)
+async function safeGenerate(fn, retries = 3) {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error("AI Error:", err.message);
 
-function validatePlan(plan) {
-  if (!Array.isArray(plan)) return false;
+    if (retries > 0) {
+      console.log(`Retrying AI... (${retries})`);
+      await new Promise((r) => setTimeout(r, 3000));
+      return safeGenerate(fn, retries - 1);
+    }
 
-  for (const item of plan) {
-    if (typeof item.day !== "number") return false;
-    if (typeof item.parentTopic !== "string") return false;
-    if (!Array.isArray(item.subtopics) && item.subtopics !== undefined)
-      return false;
+    throw err;
   }
-
-  return true;
 }
 
-exports.generatePlan = async (topics, totalDays, dailyTime) => {
-  const topicList = topics.map((t) => t.title).join(", ");
+// 🔹 Generate quiz questions
+exports.generateQuizAI = async ({ topic, difficulty, count }) => {
+  return safeGenerate(async () => {
+    const prompt = `
+            You are an expert teacher.
 
+            Generate ${count} questions about "${topic}".
+            Difficulty: ${difficulty}
+
+            Rules:
+            - Mix conceptual, application, and reasoning questions
+            - Each question must have 4 options
+            - Only ONE correct answer
+            - Return STRICT JSON (no explanation)
+
+            Format:
+            [
+            {
+                "question": "...",
+                "cognitive_category": "conceptual | calculation | application",
+                "options": [
+                {"text": "...", "is_correct": true},
+                {"text": "...", "is_correct": false}
+                ]
+            }
+            ]
+            `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite-preview",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    let text = response.text.trim();
+
+    // Clean possible markdown
+    text = text.replace(/```json|```/g, "");
+
+    return JSON.parse(text);
+  });
+};
+
+// 🔹 Retry (rephrase wrong questions)
+exports.rephraseQuestionsAI = async (questions) => {
+  return safeGenerate(async () => {
+    const prompt = `
+        Rewrite the following questions in a NEW way.
+        Keep meaning but change wording and structure.
+
+        Return STRICT JSON:
+        [
+        {
+            "question": "...",
+            "options": [
+            {"text": "...", "is_correct": true/false}
+            ]
+        }
+        ]
+
+        Questions:
+        ${JSON.stringify(questions)}
+        `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite-preview",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    let text = response.text.trim();
+    text = text.replace(/```json|```/g, "");
+
+    return JSON.parse(text);
+  });
+};
+
+exports.generateMicroLesson = async (concept, topic) => {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-lite-preview",
@@ -36,34 +106,16 @@ exports.generatePlan = async (topics, totalDays, dailyTime) => {
           parts: [
             {
               text: `
-    You are an expert AI learning strategist.
+    You are an expert tutor.
 
-    Topics:
-    ${topicList}
+    Explain the concept "${concept}" from the topic "${topic}" in a simple but deep way.
 
-    Constraints:
-    - Available days: ${totalDays}
-    - Daily study time: ${dailyTime} minutes
-
-    Rules:
-    - Respect ALL constraints if provided
-    - If constraints are strict (exam/duration), optimize within them
-    - If no constraints, design best learning flow for mastery
-    - Break topics into subtopics when needed
-    - Include learning, practice, revision, and quiz phases
-    - Avoid rigid patterns
-    - Focus on understanding, not speed
-
-    Return ONLY valid JSON:
-
-    [
-    {
-        "day": number,
-        "type": "learn" | "revision" | "quiz",
-        "parentTopic": "string",
-        "subtopics": ["string"]
-    }
-    ]
+    Requirements:
+    - 5–10 lines
+    - include intuition
+    - include one simple example
+    - avoid complex jargon
+    - student-friendly tone
                 `,
             },
           ],
@@ -71,22 +123,10 @@ exports.generatePlan = async (topics, totalDays, dailyTime) => {
       ],
     });
 
-    // 1. CLEAN OUTPUT
-    const cleaned = cleanAIResponse(response.text);
-
-    // 2. PARSE JSON
-    const plan = JSON.parse(cleaned);
-
-    // 3. VALIDATE
-    if (!validatePlan(plan)) {
-      throw new Error("Invalid AI plan structure");
-    }
-
-    return plan;
-
-    // return JSON.parse(response.text.trim());
+    return response.text;
   } catch (err) {
-    console.error("AI generation failed:", err.message);
-    throw err;
+    console.error("AI micro-lesson failed:", err.message);
+
+    return `Basic explanation of ${concept}: Review the definition and try simple examples.`;
   }
 };

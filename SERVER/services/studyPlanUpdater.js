@@ -13,7 +13,7 @@ async function updateStudyPlanFromMistakes(planId, userId) {
      WHERE user_id = ?
      GROUP BY topic_id
      ORDER BY score DESC`,
-    [userId]
+    [userId],
   );
 
   if (!weakTopics.length) return;
@@ -23,7 +23,7 @@ async function updateStudyPlanFromMistakes(planId, userId) {
       `UPDATE study_tasks
        SET session_type = 'revision'
        WHERE plan_id = ? AND topic_id = ? AND status = 'pending'`,
-      [planId, t.topic_id]
+      [planId, t.topic_id],
     );
   }
 }

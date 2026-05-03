@@ -6,7 +6,6 @@ const studyTaskController = require("../controllers/studyTaskController");
 const { authMiddleware } = require("../middleware/authMiddleware");
 
 router.get("/today", authMiddleware, studyTaskController.getTodayTasks);
-
 router.post(
   "/:taskId/complete",
   authMiddleware,

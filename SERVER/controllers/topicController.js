@@ -37,14 +37,49 @@ exports.createTopic = async (req, res) => {
   }
 };
 
+exports.createCustomTopic = async (req, res) => {
+  let { subjectId, title, description, difficulty } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    title = title.trim().toLowerCase();
+
+    const [existing] = await pool.execute(
+      `SELECT id FROM topics WHERE subject_id = ? AND title = ?`,
+      [subjectId, title],
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({
+        error: "Topic already exists",
+      });
+    }
+
+    const [result] = await pool.execute(
+      `INSERT INTO topics
+       (subject_id, title, description, difficulty, is_custom, created_by)
+       VALUES (?, ?, ?, ?, TRUE, ?)`,
+      [subjectId, title, description, difficulty, userId],
+    );
+
+    res.status(201).json({
+      message: "Custom topic created",
+      topicId: result.insertId,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 exports.getTopicsBySubject = async (req, res) => {
   const { subjectId } = req.params;
 
   try {
     const [topics] = await pool.execute(
-      `SELECT id, title, description, difficulty
-       FROM topics
-       WHERE subject_id = ?`,
+      `SELECT *
+  FROM topics
+  WHERE subject_id = ?
+  AND (is_custom = FALSE OR created_by = ?)`,
       [subjectId],
     );
 

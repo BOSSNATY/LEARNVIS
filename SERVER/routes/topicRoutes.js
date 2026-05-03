@@ -4,8 +4,11 @@ const router = express.Router();
 const topicController = require("../controllers/topicController");
 
 const { authMiddleware } = require("../middleware/authMiddleware");
+const { adminMiddleware } = require("../middleware/adminMiddleware");
 
-router.post("/", authMiddleware, topicController.createTopic);
+router.post("/", authMiddleware, adminMiddleware, topicController.createTopic);
+
+router.post("/custom", authMiddleware, topicController.createCustomTopic);
 
 router.get("/single/:id", authMiddleware, topicController.getTopic);
 

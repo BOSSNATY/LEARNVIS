@@ -7,7 +7,9 @@ exports.startLearning = async (req, res) => {
   const { topicId, subjectId, hoursPerDay, mode, daysLeft } = req.body;
 
   if (!topicId || !subjectId) {
-    return res.status(400).json({ error: "topicId and subjectId are required" });
+    return res
+      .status(400)
+      .json({ error: "topicId and subjectId are required" });
   }
 
   try {
@@ -31,7 +33,7 @@ exports.startLearning = async (req, res) => {
       `INSERT INTO learning_state (user_id, subject_id, topic_id, status, progress_percent)
        VALUES (?, ?, ?, 'learning', 0)
        ON DUPLICATE KEY UPDATE status = 'learning', updated_at = NOW()`,
-      [userId, subjectId, topicId]
+      [userId, subjectId, topicId],
     );
 
     res.json({
@@ -55,7 +57,7 @@ exports.getTopicContent = async (req, res) => {
     // Try to get cached content first
     const [[cached]] = await pool.execute(
       "SELECT text_content, updated_at FROM content WHERE topic_id = ? ORDER BY id DESC LIMIT 1",
-      [topicId]
+      [topicId],
     );
 
     if (cached) {

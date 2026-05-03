@@ -5,9 +5,7 @@ const mistakeController = require("../controllers/mistakeController");
 const { authMiddleware } = require("../middleware/authMiddleware");
 
 router.post("/", authMiddleware, mistakeController.addMistake);
-
 router.get("/weak-topics", authMiddleware, mistakeController.getWeakTopics);
-
 router.get(
   "/topic/:topicId",
   authMiddleware,

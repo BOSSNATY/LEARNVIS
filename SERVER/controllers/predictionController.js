@@ -11,7 +11,7 @@ exports.getPrediction = async (req, res) => {
       `SELECT score, submitted_at FROM mock_exams
        WHERE user_id = ? AND subject_id = ? AND score IS NOT NULL
        ORDER BY submitted_at DESC LIMIT 5`,
-      [userId, subjectId]
+      [userId, subjectId],
     );
 
     // 2. Quiz performance across all topics in subject
@@ -22,7 +22,7 @@ exports.getPrediction = async (req, res) => {
        JOIN quizzes q ON qa.quiz_id = q.id
        JOIN topics t ON q.topic_id = t.id
        WHERE qa.user_id = ? AND t.subject_id = ? AND qa.completed_at IS NOT NULL`,
-      [userId, subjectId]
+      [userId, subjectId],
     );
 
     // 3. Mastery rate
@@ -34,7 +34,7 @@ exports.getPrediction = async (req, res) => {
        FROM topics t
        LEFT JOIN learning_state ls ON ls.topic_id = t.id AND ls.user_id = ?
        WHERE t.subject_id = ?`,
-      [userId, subjectId]
+      [userId, subjectId],
     );
 
     // 4. Study consistency (sessions in last 7 days)
@@ -45,7 +45,7 @@ exports.getPrediction = async (req, res) => {
        JOIN study_plans sp ON st.plan_id = sp.id
        WHERE ss.user_id = ? AND sp.subject_id = ?
          AND ss.start_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)`,
-      [userId, subjectId]
+      [userId, subjectId],
     );
 
     // 5. Compute predicted score
@@ -61,7 +61,11 @@ exports.getPrediction = async (req, res) => {
     // Weighted formula: 40% quiz, 35% mock, 15% mastery, 10% consistency
     let predicted;
     if (mockAvg !== null) {
-      predicted = quizAvg * 0.4 + mockAvg * 0.35 + masteryRate * 0.15 + consistencyScore * 0.1;
+      predicted =
+        quizAvg * 0.4 +
+        mockAvg * 0.35 +
+        masteryRate * 0.15 +
+        consistencyScore * 0.1;
     } else {
       predicted = quizAvg * 0.5 + masteryRate * 0.35 + consistencyScore * 0.15;
     }
@@ -70,13 +74,19 @@ exports.getPrediction = async (req, res) => {
     // 6. Generate improvement insights
     const insights = [];
     if (masteryRate < 50) {
-      insights.push("Focus on mastering more topics — currently below 50% mastery rate.");
+      insights.push(
+        "Focus on mastering more topics — currently below 50% mastery rate.",
+      );
     }
     if (consistencyScore < 50) {
-      insights.push("Study more consistently — aim for at least 5 active days per week.");
+      insights.push(
+        "Study more consistently — aim for at least 5 active days per week.",
+      );
     }
     if (quizAvg < 70) {
-      insights.push("Your quiz average is below 70 — review weak concepts and retry quizzes.");
+      insights.push(
+        "Your quiz average is below 70 — review weak concepts and retry quizzes.",
+      );
     }
     if (mockScores.length === 0) {
       insights.push("Take a mock exam to improve prediction accuracy.");
@@ -90,7 +100,7 @@ exports.getPrediction = async (req, res) => {
       `INSERT INTO predicted_scores (user_id, subject_id, predicted_score)
        VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE predicted_score = ?, updated_at = NOW()`,
-      [userId, subjectId, predicted, predicted]
+      [userId, subjectId, predicted, predicted],
     );
 
     res.json({
@@ -124,7 +134,7 @@ exports.getAllPredictions = async (req, res) => {
        JOIN subjects s ON ps.subject_id = s.id
        WHERE ps.user_id = ?
        ORDER BY ps.updated_at DESC`,
-      [userId]
+      [userId],
     );
     res.json(predictions);
   } catch (err) {

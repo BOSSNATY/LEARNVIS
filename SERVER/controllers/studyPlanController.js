@@ -3,17 +3,21 @@ const { generatePlan } = require("../services/aiPlanner");
 
 // POST /api/study-plans
 exports.createStudyPlan = async (req, res) => {
-  const { subjectId, examDate, dailyTimeMinutes } = req.body;
+  const { subjectId, examDate, dailyTimeMinutes, targetScore, target_score } =
+    req.body;
   const userId = req.user.userId;
+  const requestedTargetScore = targetScore || target_score || 85;
 
   if (!subjectId || !dailyTimeMinutes) {
-    return res.status(400).json({ error: "subjectId and dailyTimeMinutes are required" });
+    return res
+      .status(400)
+      .json({ error: "subjectId and dailyTimeMinutes are required" });
   }
 
   try {
     const [existing] = await pool.execute(
       "SELECT id FROM study_plans WHERE user_id = ? AND subject_id = ?",
-      [userId, subjectId]
+      [userId, subjectId],
     );
     if (existing.length > 0) {
       return res.status(400).json({
@@ -22,12 +26,31 @@ exports.createStudyPlan = async (req, res) => {
       });
     }
 
-    const [result] = await pool.execute(
-      "INSERT INTO study_plans (user_id, subject_id, exam_date, daily_time_minutes) VALUES (?, ?, ?, ?)",
-      [userId, subjectId, examDate || null, dailyTimeMinutes]
-    );
+    let result;
+    try {
+      [result] = await pool.execute(
+        "INSERT INTO study_plans (user_id, subject_id, exam_date, daily_time_minutes, target_score) VALUES (?, ?, ?, ?, ?)",
+        [
+          userId,
+          subjectId,
+          examDate || null,
+          dailyTimeMinutes,
+          requestedTargetScore,
+        ],
+      );
+    } catch (insertErr) {
+      if (insertErr.code !== "ER_BAD_FIELD_ERROR") throw insertErr;
+      [result] = await pool.execute(
+        "INSERT INTO study_plans (user_id, subject_id, exam_date, daily_time_minutes) VALUES (?, ?, ?, ?)",
+        [userId, subjectId, examDate || null, dailyTimeMinutes],
+      );
+    }
 
-    res.status(201).json({ message: "Study plan created", planId: result.insertId });
+    res.status(201).json({
+      message: "Study plan created",
+      planId: result.insertId,
+      targetScore: requestedTargetScore,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -40,23 +63,26 @@ exports.generateDailyTasks = async (req, res) => {
   const { topicIds } = req.body;
 
   if (!topicIds || !topicIds.length) {
-    return res.status(400).json({ error: "Please provide at least one topicId" });
+    return res
+      .status(400)
+      .json({ error: "Please provide at least one topicId" });
   }
 
   try {
     // 1. Verify plan ownership
     const [[plan]] = await pool.execute(
       "SELECT * FROM study_plans WHERE id = ? AND user_id = ?",
-      [planId, userId]
+      [planId, userId],
     );
     if (!plan) return res.status(404).json({ error: "Study plan not found" });
 
     // 2. Fetch topics
     const [topics] = await pool.query(
       "SELECT id, title, difficulty FROM topics WHERE id IN (?)",
-      [topicIds]
+      [topicIds],
     );
-    if (!topics.length) return res.status(400).json({ error: "No valid topics found" });
+    if (!topics.length)
+      return res.status(400).json({ error: "No valid topics found" });
 
     const cleanTopics = topics
       .filter((t) => t && t.title)
@@ -70,7 +96,7 @@ exports.generateDailyTasks = async (req, res) => {
     let totalDays;
     if (plan.exam_date) {
       const daysUntilExam = Math.ceil(
-        (new Date(plan.exam_date) - new Date()) / (1000 * 60 * 60 * 24)
+        (new Date(plan.exam_date) - new Date()) / (1000 * 60 * 60 * 24),
       );
       totalDays = Math.max(daysUntilExam, 1);
     } else {
@@ -80,7 +106,12 @@ exports.generateDailyTasks = async (req, res) => {
     // 4. Generate AI plan (with fallback)
     let aiPlan;
     try {
-      aiPlan = await generatePlan(cleanTopics, totalDays, plan.daily_time_minutes);
+      aiPlan = await generatePlan(
+        cleanTopics,
+        totalDays,
+        plan.daily_time_minutes,
+        plan.target_score || 85,
+      );
     } catch (err) {
       console.error("AI planner failed, using fallback:", err.message);
       aiPlan = cleanTopics.map((t, i) => ({
@@ -104,16 +135,20 @@ exports.generateDailyTasks = async (req, res) => {
       const dayOffset = Number(dayPlan.day);
       if (isNaN(dayOffset)) continue;
 
-      const topic = titleToTopic[(dayPlan.parentTopic || "").toLowerCase().trim()];
+      const topic =
+        titleToTopic[(dayPlan.parentTopic || "").toLowerCase().trim()];
       if (!topic) {
-        console.warn("Skipping unrecognized topic from AI plan:", dayPlan.parentTopic);
+        console.warn(
+          "Skipping unrecognized topic from AI plan:",
+          dayPlan.parentTopic,
+        );
         continue;
       }
 
       const [taskRes] = await pool.execute(
         `INSERT INTO study_tasks (plan_id, topic_id, scheduled_date, session_type)
          VALUES (?, ?, DATE_ADD(CURDATE(), INTERVAL ? DAY), ?)`,
-        [planId, topic.id, dayOffset, dayPlan.type || "learn"]
+        [planId, topic.id, dayOffset, dayPlan.type || "learn"],
       );
 
       savedTasks.push({
@@ -154,7 +189,7 @@ exports.getMyPlans = async (req, res) => {
        WHERE sp.user_id = ?
        GROUP BY sp.id
        ORDER BY sp.id DESC`,
-      [userId]
+      [userId],
     );
     res.json(plans);
   } catch (err) {
@@ -170,7 +205,7 @@ exports.getPlanTasks = async (req, res) => {
   try {
     const [[plan]] = await pool.execute(
       "SELECT id FROM study_plans WHERE id = ? AND user_id = ?",
-      [planId, userId]
+      [planId, userId],
     );
     if (!plan) return res.status(404).json({ error: "Plan not found" });
 
@@ -180,7 +215,7 @@ exports.getPlanTasks = async (req, res) => {
        JOIN topics t ON st.topic_id = t.id
        WHERE st.plan_id = ?
        ORDER BY st.scheduled_date ASC`,
-      [planId]
+      [planId],
     );
 
     res.json({ planId: Number(planId), tasks });
@@ -197,7 +232,7 @@ exports.deletePlan = async (req, res) => {
   try {
     const [[plan]] = await pool.execute(
       "SELECT id FROM study_plans WHERE id = ? AND user_id = ?",
-      [planId, userId]
+      [planId, userId],
     );
     if (!plan) return res.status(404).json({ error: "Plan not found" });
 
