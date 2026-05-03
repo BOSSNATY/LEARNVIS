@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+  import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
 export const getToken = () => localStorage.getItem("learnvis-token");
 export const getRefreshToken = () =>
@@ -101,6 +101,7 @@ export const api = {
     }),
   googleLogin: (credential) =>
     request("/auth/google", { method: "POST", body: { credential } }),
+  dashboard: () => request("/dashboard"),
   me: () => request("/users/me"),
   updateMe: (payload) => request("/users/me", { method: "PUT", body: payload }),
   users: () => request("/users"),

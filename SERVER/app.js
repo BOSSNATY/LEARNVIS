@@ -18,13 +18,19 @@ const analyticsRoutes = require("./routes/analyticsRoutes");
 const revisionRoutes = require("./routes/revisionRoutes");
 const mockExamRoutes = require("./routes/mockExamRoutes");
 const predictionRoutes = require("./routes/predictionRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 
 // Jobs
 const { startTaskScheduler } = require("./jobs/taskScheduler");
 
 const app = express();
+app.use(
+  cors({
+    origin: "http://localhost:5173", // Your frontend URL
+    credentials: true,
+  }),
+);
 
-app.use(cors());
 app.use(express.json());
 
 // Health check
@@ -58,6 +64,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/revision", revisionRoutes);
 app.use("/api/mock", mockExamRoutes);
 app.use("/api/prediction", predictionRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // Start cron jobs
 startTaskScheduler();

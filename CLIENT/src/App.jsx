@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import { useState } from "react";
 
+import "./styles/responsive.css";
 // Auth Pages
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -46,6 +47,9 @@ import AdminTopics from "./pages/admin/Topics";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminSettings from "./pages/admin/Settings";
 
+import ProtectedRoute from "./components/ProtectedRoute";
+import PublicRoute from "./components/PublicRoute";
+
 // Context
 import { AppProvider } from "./context/AppContext";
 
@@ -57,13 +61,33 @@ function App() {
       <Router>
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login setUser={setUser} />} />
+          <Route
+            path="/"
+            element={
+              <PublicRoute>
+                <Landing />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
           <Route path="/signup" element={<Signup setUser={setUser} />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-
           {/* Student Routes */}
-          <Route path="/student/dashboard" element={<StudentDashboard />} />
+          <Route
+            path="/student/dashboard"
+            element={
+              <ProtectedRoute>
+                <StudentDashboard />
+              </ProtectedRoute>
+            }
+          />{" "}
           <Route path="/student/planner" element={<StudentPlanner />} />
           <Route path="/student/calendar" element={<StudentCalendar />} />
           <Route path="/student/onboarding" element={<StudentOnboarding />} />
@@ -125,16 +149,21 @@ function App() {
           />
           <Route path="/student/profile" element={<StudentProfile />} />
           <Route path="/student/settings" element={<StudentSettings />} />
-
           {/* Admin Routes */}
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/users/:userId" element={<AdminUsers />} />
           <Route path="/admin/subjects" element={<AdminSubjects />} />
           <Route path="/admin/topics" element={<AdminTopics />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
-
           {/* Redirect unknown routes */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
