@@ -1,118 +1,71 @@
 const pool = require("../config/db");
+const { buildTopicContent } = require("../services/contentService");
 
+// POST /api/learning/start
 exports.startLearning = async (req, res) => {
   const userId = req.user.userId;
+  const { topicId, subjectId, hoursPerDay, mode, daysLeft } = req.body;
 
-  const {
-    topicId,
-    subjectId,
-    hoursPerDay,
-    mode, // "exam" or "normal"
-    daysLeft, // optional
-    notes,
-    pastExam,
-  } = req.body;
+  if (!topicId || !subjectId) {
+    return res.status(400).json({ error: "topicId and subjectId are required" });
+  }
 
   try {
-    // ==============================
-    // 1. GENERATE OR REFINE CONTENT
-    // ==============================
+    // 1. Generate or fetch AI content for the topic
+    const content = await buildTopicContent(topicId, userId);
 
-    let contentText = "";
+    // 2. Estimate study days based on content size
+    const contentLength = content.length;
+    const charsPerMinute = 800; // avg reading/study rate
+    const totalMinutes = contentLength / charsPerMinute;
+    const hoursPerDaySafe = Math.max(hoursPerDay || 1, 0.5);
+    let totalDays = Math.ceil(totalMinutes / 60 / hoursPerDaySafe);
+    totalDays = Math.max(totalDays, 1);
 
-    if (!notes && !pastExam) {
-      contentText = await generateAI(`
-    Explain this topic in structured way:
-    - concepts
-    - examples
-    - formulas
-
-    Topic ID: ${topicId}
-    `);
-    } else {
-      contentText = await generateAI(`
-    Convert this into structured study notes:
-
-    Notes:
-    ${notes || "N/A"}
-
-    Past Exam:
-    ${pastExam || "N/A"}
-    `);
-    }
-
-    // Save content
-    const [contentResult] = await pool.execute(
-      `INSERT INTO content (topic_id, type, text_content)
-       VALUES (?, 'text', ?)`,
-      [topicId, contentText],
-    );
-
-    // ==============================
-    // 2. ESTIMATE STUDY DAYS
-    // ==============================
-
-    const contentLength = contentText.length;
-
-    let totalDays = estimateDays(contentLength, hoursPerDay);
-
-    // ⚠️ IMPORTANT: DO NOT FORCE LONG PLAN
     if (mode === "exam" && daysLeft) {
       totalDays = Math.min(totalDays, daysLeft);
     }
 
-    // ==============================
-    // 3. CREATE STUDY SESSIONS
-    // ==============================
-
-    const sessions = [];
-
-    for (let day = 1; day <= totalDays; day++) {
-      sessions.push([userId, topicId, hoursPerDay * 60, "learn", day]);
-
-      // Add quiz session AFTER learning chunk
-      sessions.push([
-        userId,
-        topicId,
-        30, // fixed quiz duration
-        "quiz",
-        day,
-      ]);
-    }
-
-    await pool.query(
-      `INSERT INTO study_sessions 
-      (user_id, topic_id, planned_duration, session_type, day_number)
-      VALUES ?`,
-      [sessions],
-    );
-
-    // ==============================
-    // 4. INIT LEARNING STATE
-    // ==============================
-
+    // 3. Init or update learning state
     await pool.execute(
-      `INSERT INTO learning_state
-       (user_id, subject_id, topic_id, status, progress_percent)
+      `INSERT INTO learning_state (user_id, subject_id, topic_id, status, progress_percent)
        VALUES (?, ?, ?, 'learning', 0)
-       ON DUPLICATE KEY UPDATE status='learning'`,
-      [userId, subjectId, topicId],
+       ON DUPLICATE KEY UPDATE status = 'learning', updated_at = NOW()`,
+      [userId, subjectId, topicId]
     );
-
-    // ==============================
-    // 5. MICRO-REVISION HOOK
-    // ==============================
-
-    // schedule revision sessions later (after mastery)
-    // we just mark it for future logic
 
     res.json({
-      message: "Learning started successfully",
+      message: "Learning started",
+      topicId,
       totalDays,
-      sessionsCreated: sessions.length,
-      note: "Plan adapts to content size, not forced duration",
+      contentPreview: content.substring(0, 300) + "...",
+      note: "Plan adapts to content size",
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// GET /api/learning/content/:topicId
+exports.getTopicContent = async (req, res) => {
+  const { topicId } = req.params;
+  const userId = req.user.userId;
+
+  try {
+    // Try to get cached content first
+    const [[cached]] = await pool.execute(
+      "SELECT text_content, updated_at FROM content WHERE topic_id = ? ORDER BY id DESC LIMIT 1",
+      [topicId]
+    );
+
+    if (cached) {
+      return res.json({ topicId, content: cached.text_content, cached: true });
+    }
+
+    // Generate fresh if not cached
+    const content = await buildTopicContent(topicId, userId);
+    res.json({ topicId, content, cached: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
