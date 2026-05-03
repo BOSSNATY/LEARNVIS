@@ -1,10 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "../../components/AdminLayout";
-import { useApp } from "../../context/AppContext";
+import { api } from "../../services/api";
 import {
   Search,
   Filter,
-  MoreVertical,
   Edit2,
   Trash2,
   Eye,
@@ -14,15 +13,55 @@ import {
 } from "lucide-react";
 
 const Users = () => {
-  const { users } = useApp();
+  const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [message, setMessage] = useState("");
+
+  const loadUsers = () => {
+    api
+      .users()
+      .then((rows) => setUsers(Array.isArray(rows) ? rows : []))
+      .catch((error) => setMessage(error.message));
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
   const filteredUsers = users.filter(
     (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()),
+      String(user.name || "")
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      String(user.email || "")
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()),
   );
+
+  const parseSubjects = (subjects) => {
+    if (Array.isArray(subjects)) return subjects;
+    if (typeof subjects === "string" && subjects.length)
+      return subjects.split(",").map((item) => item.trim());
+    return [];
+  };
+
+  const editUserRole = async (user) => {
+    const role = window.prompt(
+      "Enter role: student or admin",
+      user.role || "student",
+    );
+    if (!role || !["student", "admin"].includes(role)) return;
+    await api
+      .updateUser(user.id, { name: user.name, email: user.email, role })
+      .catch((error) => setMessage(error.message));
+    loadUsers();
+  };
+
+  const deleteUser = async (user) => {
+    if (!window.confirm(`Delete ${user.name || user.email}?`)) return;
+    await api.deleteUser(user.id).catch((error) => setMessage(error.message));
+    loadUsers();
+  };
 
   return (
     <AdminLayout>
@@ -48,6 +87,11 @@ const Users = () => {
         </div>
 
         {/* Stats */}
+        {message && (
+          <div className="mb-4 rounded-xl border border-yellow-500/20 bg-yellow-600/10 p-3 text-sm text-yellow-300">
+            {message}
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-[#111827]/40 backdrop-blur-xl border border-white/5 rounded-2xl p-4">
             <div className="text-gray-400 text-sm mb-1">Total Users</div>
@@ -115,81 +159,93 @@ const Users = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user) => (
-                  <tr
-                    key={user.id}
-                    className="border-b border-white/5 hover:bg-white/5 transition-all"
-                  >
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center font-bold text-sm">
-                          {user.name.charAt(0)}
+                {filteredUsers.map((user) => {
+                  const subjectList = parseSubjects(user.subjects);
+                  const progress = Number(
+                    user.progress ?? user.average_score ?? 0,
+                  );
+                  return (
+                    <tr
+                      key={user.id}
+                      className="border-b border-white/5 hover:bg-white/5 transition-all"
+                    >
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center font-bold text-sm">
+                            {String(user.name || user.email || "U").charAt(0)}
+                          </div>
+                          <span className="font-medium">
+                            {user.name || "Unnamed user"}
+                          </span>
                         </div>
-                        <span className="font-medium">{user.name}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-gray-400">{user.email}</td>
-                    <td className="p-4">
-                      <div className="flex flex-wrap gap-1">
-                        {user.subjects.slice(0, 2).map((subject, i) => (
-                          <span
-                            key={i}
-                            className="px-2 py-1 bg-blue-600/20 text-blue-400 text-xs rounded-full"
+                      </td>
+                      <td className="p-4 text-gray-400">{user.email}</td>
+                      <td className="p-4">
+                        <div className="flex flex-wrap gap-1">
+                          {subjectList.slice(0, 2).map((subject, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-1 bg-blue-600/20 text-blue-400 text-xs rounded-full"
+                            >
+                              {subject}
+                            </span>
+                          ))}
+                          {subjectList.length > 2 && (
+                            <span className="px-2 py-1 bg-gray-600/20 text-gray-400 text-xs rounded-full">
+                              +{subjectList.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-green-500 rounded-full"
+                              style={{ width: `${progress}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-gray-400">
+                            {progress}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-4 text-gray-400">
+                        {user.joined || user.created_at?.slice?.(0, 10) || "-"}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            className="p-2 hover:bg-white/10 rounded-lg transition-all"
+                            title="View"
                           >
-                            {subject}
-                          </span>
-                        ))}
-                        {user.subjects.length > 2 && (
-                          <span className="px-2 py-1 bg-gray-600/20 text-gray-400 text-xs rounded-full">
-                            +{user.subjects.length - 2}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-2 bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-green-500 rounded-full"
-                            style={{ width: `${user.progress}%` }}
-                          ></div>
+                            <Eye size={16} className="text-gray-400" />
+                          </button>
+                          <button
+                            onClick={() => editUserRole(user)}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-all"
+                            title="Edit role"
+                          >
+                            <Edit2 size={16} className="text-blue-400" />
+                          </button>
+                          <button
+                            className="p-2 hover:bg-white/10 rounded-lg transition-all"
+                            title="Email"
+                          >
+                            <Mail size={16} className="text-gray-400" />
+                          </button>
+                          <button
+                            onClick={() => deleteUser(user)}
+                            className="p-2 hover:bg-red-500/10 rounded-lg transition-all"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} className="text-red-400" />
+                          </button>
                         </div>
-                        <span className="text-sm text-gray-400">
-                          {user.progress}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-gray-400">{user.joined}</td>
-                    <td className="p-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          className="p-2 hover:bg-white/10 rounded-lg transition-all"
-                          title="View"
-                        >
-                          <Eye size={16} className="text-gray-400" />
-                        </button>
-                        <button
-                          className="p-2 hover:bg-white/10 rounded-lg transition-all"
-                          title="Edit"
-                        >
-                          <Edit2 size={16} className="text-blue-400" />
-                        </button>
-                        <button
-                          className="p-2 hover:bg-white/10 rounded-lg transition-all"
-                          title="Email"
-                        >
-                          <Mail size={16} className="text-gray-400" />
-                        </button>
-                        <button
-                          className="p-2 hover:bg-red-500/10 rounded-lg transition-all"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} className="text-red-400" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

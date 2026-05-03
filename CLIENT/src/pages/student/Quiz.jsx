@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
 import StudentLayout from "../../components/StudentLayout";
@@ -12,6 +12,7 @@ import {
   FileText,
   Lightbulb,
 } from "lucide-react";
+import { api } from "../../services/api";
 
 const Quiz = () => {
   const navigate = useNavigate();
@@ -22,9 +23,43 @@ const Quiz = () => {
   const [showResult, setShowResult] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [serverQuizId, setServerQuizId] = useState(null);
+  const [attemptId, setAttemptId] = useState(null);
+  const [questions, setQuestions] = useState(quizQuestions);
+  const [serverResult, setServerResult] = useState(null);
 
   const topic = getTopicById(topicId);
-  const questions = quizQuestions;
+
+  useEffect(() => {
+    if (!topicId) return;
+    api
+      .generateQuiz({ topicId, mode: "practice" })
+      .then(async (generated) => {
+        const quizId = generated.quizId || generated.id;
+        setServerQuizId(quizId);
+        const [quizQuestionsFromApi, attempt] = await Promise.all([
+          api.quiz(quizId),
+          api.startAttempt(quizId).catch(() => null),
+        ]);
+        if (attempt?.attemptId) setAttemptId(attempt.attemptId);
+        setQuestions(
+          quizQuestionsFromApi.map((question) => ({
+            id: question.id || question.question_id,
+            question: question.question_text,
+            type:
+              question.cognitive_category === "calculation"
+                ? "application"
+                : question.cognitive_category,
+            options: question.options.map((option) => option.option_text),
+            optionIds: question.options.map((option) => option.id),
+            correctAnswer: question.options.findIndex(
+              (option) => option.is_correct,
+            ),
+          })),
+        );
+      })
+      .catch(() => setQuestions(quizQuestions));
+  }, [topicId]);
 
   if (!topic) {
     return (
@@ -58,12 +93,30 @@ const Quiz = () => {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(answers[currentQuestion + 1] ?? null);
       setIsSubmitted(false);
     } else {
+      if (serverQuizId) {
+        try {
+          const payload = questions.map((q, index) => ({
+            questionId: q.id,
+            selectedOption: q.options?.[answers[index]],
+            conceptTag: q.type || "general",
+          }));
+          setServerResult(
+            await api.submitQuiz(serverQuizId, {
+              attemptId,
+              answers: payload,
+              topicId,
+            }),
+          );
+        } catch (_error) {
+          setServerResult(null);
+        }
+      }
       setShowResult(true);
     }
   };
@@ -104,7 +157,7 @@ const Quiz = () => {
   };
 
   if (showResult) {
-    const score = calculateScore();
+    const score = serverResult?.score ?? calculateScore();
     return (
       <StudentLayout>
         <div className="max-w-2xl mx-auto text-center py-12">

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
 import StudentLayout from "../../components/StudentLayout";
@@ -14,6 +14,7 @@ import {
   Share2,
   Bookmark,
 } from "lucide-react";
+import { api } from "../../services/api";
 
 const LearnPage = () => {
   const navigate = useNavigate();
@@ -22,11 +23,12 @@ const LearnPage = () => {
   const [activeTab, setActiveTab] = useState("content");
 
   const topic = getTopicById(topicId);
-  const subject = topic ? getSubjectById(1) : null; // Simplified for demo
+  const subject = topic
+    ? getSubjectById(topic.subject_id || topic.subjectId || 1)
+    : null;
 
-  // Mock content for the topic
-  const content = {
-    video: "https://www.youtube.com/embed/dHjWVlfNraM?si=MOCET5Fq8GiaKpar", // Placeholder
+  const fallbackContent = {
+    video: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Placeholder
     text: `
 # Motion and Kinematics
 
@@ -68,6 +70,27 @@ Kinematics provides the mathematical tools to describe motion. By understanding 
       "Acceleration is the rate of change of velocity",
     ],
   };
+  const [content, setContent] = useState(fallbackContent);
+
+  useEffect(() => {
+    api
+      .content(topicId)
+      .then((data) => {
+        const contentPayload = data.content || data.primary || data;
+        setContent({
+          video:
+            contentPayload.type === "video"
+              ? contentPayload.video_url
+              : fallbackContent.video,
+          text:
+            contentPayload.text_content ||
+            contentPayload.content ||
+            fallbackContent.text,
+          keyPoints: fallbackContent.keyPoints,
+        });
+      })
+      .catch(() => setContent(fallbackContent));
+  }, [topicId]);
 
   if (!topic) {
     return (

@@ -11,7 +11,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import logo from "../assets/img/logo-dark.png";
+import Header from "../components/Header";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -61,33 +61,7 @@ const Landing = () => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/5 rounded-full blur-[150px]"></div>
       </div>
 
-      {/* Navigation */}
-      <nav className="landing-nav relative z-10 px-6 py-4">
-        <div className="landing-container landing-nav-row max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* <div className="landing-brand-mark w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <div className="w-5 h-5 border-2 border-white rounded-full border-t-transparent animate-spin"></div>
-            </div> */}
-            <span className="logoimg-width">
-              <img src={logo} alt="" />
-            </span>
-          </div>
-          <div className="landing-nav-actions flex items-center gap-4">
-            <button
-              onClick={() => navigate("/login")}
-              className="px-5 py-2.5 text-gray-300 hover:text-white transition-colors font-medium"
-            >
-              Login
-            </button>
-            <button
-              onClick={() => navigate("/signup")}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all shadow-lg shadow-blue-600/20 hover:shadow-blue-500/30"
-            >
-              Get Started
-            </button>
-          </div>
-        </div>
-      </nav>
+      <Header />
 
       {/* Hero Section */}
       <section className="landing-hero relative z-10 px-6 pt-20 pb-32">
@@ -105,13 +79,14 @@ const Landing = () => {
             </span>
             <br />
             <span className="bg-gradient-to-r from-blue-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">
-              Achieve Greater
+              Not Harder
             </span>
           </h1>
 
           <p className="landing-copy text-xl text-gray-400 max-w-2xl mx-auto mb-10">
-            An Al-powered learning platform that adapts to your pace and helps
-            you master any subject with personaitzed guidance.
+            Experience personalized learning with AI-generated quizzes, adaptive
+            content, and comprehensive analytics designed to accelerate your
+            education journey.
           </p>
 
           <div className="landing-cta-row flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
@@ -322,7 +297,7 @@ const Landing = () => {
               </span>
             </div>
             <div className="text-gray-500 text-sm">
-              © 2026 LEARNVIS. All rights reserved.
+              © 2024 LEARNVIS. All rights reserved.
             </div>
           </div>
         </div>

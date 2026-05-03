@@ -1,34 +1,34 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
-import logo from "../assets/img/logo-dark.png";
+import Header from "../components/Header";
+import GoogleSignInButton from "../components/GoogleSignInButton";
+import { useApp } from "../context/AppContext";
+import { api, setSession } from "../services/api";
 
 const Login = ({ setUser }) => {
   const navigate = useNavigate();
   const [showPass, setShowPass] = useState(false);
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
+  const { setCurrentUser } = useApp();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      // Demo login - check for admin or student
-      if (formData.email === "admin@learnvis.com") {
-        setUser({ role: "admin", name: "Admin User", email: formData.email });
-        navigate("/admin/dashboard");
-      } else {
-        setUser({
-          role: "student",
-          name: "Demo Student",
-          email: formData.email,
-        });
-        navigate("/student/dashboard");
-      }
+    try {
+      const data = await api.login(formData);
+      setSession(data);
+      setCurrentUser(data.user);
+      setUser?.(data.user);
+      if (data.user.role === "admin") navigate("/admin/dashboard");
+      else if (data.requiresOnboarding) navigate("/student/onboarding");
+      else navigate("/student/dashboard");
+    } catch (error) {
+      alert(error.message || "Login failed");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -37,15 +37,7 @@ const Login = ({ setUser }) => {
       <div className="absolute top-[10%] -left-20 w-80 h-80 bg-blue-600/10 rounded-full blur-[100px]"></div>
       <div className="absolute bottom-[10%] -right-20 w-80 h-80 bg-indigo-600/10 rounded-full blur-[100px]"></div>
 
-      {/* Brand Header */}
-      <div
-        className="flex items-center gap-3 mb-8 relative z-10 cursor-pointer"
-        onClick={() => navigate("/")}
-      >
-        <span className="loginimg-width logoimg-width">
-          <img src={logo} alt="" />
-        </span>
-      </div>
+      <Header variant="auth" />
 
       {/* Login Card */}
       <div className="w-full max-w-md bg-[#111827]/40 backdrop-blur-2xl border border-white/10 p-10 rounded-[2rem] shadow-2xl relative z-10">
@@ -134,26 +126,7 @@ const Login = ({ setUser }) => {
             <div className="h-[1px] bg-white/5 flex-grow"></div>
           </div>
 
-          <div className="flex gap-4 w-full">
-            <button className="flex-1 bg-[#1f2937]/60 py-3 rounded-xl border border-white/5 flex items-center justify-center gap-3 hover:bg-gray-700 transition-all">
-              <img
-                src="https://www.google.com/favicon.ico"
-                className="w-4 h-4 grayscale group-hover:grayscale-0"
-                alt="G"
-              />
-              <span className="text-sm font-semibold text-white">Google</span>
-            </button>
-            <button className="flex-1 bg-[#1f2937]/60 py-3 rounded-xl border border-white/5 flex items-center justify-center gap-3 hover:bg-gray-700 transition-all">
-              <img
-                src="https://www.microsoft.com/favicon.ico"
-                className="w-4 h-4 grayscale group-hover:grayscale-0"
-                alt="M"
-              />
-              <span className="text-sm font-semibold text-white">
-                Microsoft
-              </span>
-            </button>
-          </div>
+          <GoogleSignInButton setUser={setUser} mode="login" />
 
           <p className="text-sm text-gray-400 mt-2">
             Don't have an account?{" "}

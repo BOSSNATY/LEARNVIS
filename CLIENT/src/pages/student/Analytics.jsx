@@ -1,6 +1,7 @@
 import React from "react";
 import StudentLayout from "../../components/StudentLayout";
 import { useApp } from "../../context/AppContext";
+import ActivityTrackerCanvas from "../../components/ActivityTrackerCanvas";
 import {
   BarChart3,
   TrendingUp,
@@ -167,31 +168,9 @@ const Analytics = () => {
           <div className="bg-[#111827]/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
             <h3 className="font-semibold mb-4 flex items-center gap-2">
               <Calendar className="text-yellow-400" size={18} />
-              Activity Calendar
+              Activity Tracker
             </h3>
-            <div className="grid grid-cols-7 gap-1">
-              {Array.from({ length: 28 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-full aspect-square rounded-sm ${
-                    Math.random() > 0.3
-                      ? Math.random() > 0.5
-                        ? "bg-green-600"
-                        : "bg-green-600/50"
-                      : "bg-gray-700"
-                  }`}
-                ></div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
-              <span>Less</span>
-              <div className="flex gap-1">
-                <div className="w-3 h-3 bg-gray-700 rounded-sm"></div>
-                <div className="w-3 h-3 bg-green-600/50 rounded-sm"></div>
-                <div className="w-3 h-3 bg-green-600 rounded-sm"></div>
-              </div>
-              <span>More</span>
-            </div>
+            <ActivityTrackerCanvas />
           </div>
 
           {/* Goals Progress */}

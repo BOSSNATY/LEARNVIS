@@ -7,16 +7,19 @@ import {
   FileText,
   BarChart3,
   Lightbulb,
+  CalendarDays,
+  ClipboardList,
+  RefreshCcw,
+  AlertTriangle,
+  TrendingUp,
   User,
   Settings,
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Bell,
-  Search,
-  Menu,
   X,
 } from "lucide-react";
+import Header from "./Header";
 
 const StudentLayout = ({ children }) => {
   const navigate = useNavigate();
@@ -27,9 +30,15 @@ const StudentLayout = ({ children }) => {
 
   const menuItems = [
     { icon: Home, label: "Dashboard", path: "/student/dashboard" },
+    { icon: ClipboardList, label: "Planner", path: "/student/planner" },
+    { icon: CalendarDays, label: "Calendar", path: "/student/calendar" },
     { icon: BookOpen, label: "Subjects", path: "/student/subjects" },
+    { icon: RefreshCcw, label: "Revision", path: "/student/revision" },
+    { icon: FileText, label: "Mock Exams", path: "/student/mock-exam" },
     { icon: FileText, label: "Results", path: "/student/results" },
     { icon: BarChart3, label: "Analytics", path: "/student/analytics" },
+    { icon: AlertTriangle, label: "Mistakes", path: "/student/mistakes" },
+    { icon: TrendingUp, label: "Predictions", path: "/student/predictions" },
     {
       icon: Lightbulb,
       label: "Recommendations",
@@ -146,36 +155,12 @@ const StudentLayout = ({ children }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
         {/* Top Header */}
-        <header className="bg-[#0d1117]/80 backdrop-blur-xl border-b border-white/5 px-4 lg:px-8 py-4 sticky top-0 z-30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setIsMobileMenuOpen(true)}
-                className="lg:hidden p-2 rounded-lg hover:bg-white/5 transition-colors"
-              >
-                <Menu size={20} className="text-gray-400" />
-              </button>
-              <div className="hidden md:flex items-center gap-3 bg-[#1f2937]/40 border border-white/5 rounded-xl px-4 py-2.5 w-80">
-                <Search size={18} className="text-gray-500" />
-                <input
-                  type="text"
-                  placeholder="Search subjects, topics..."
-                  className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <button className="relative p-2.5 rounded-xl hover:bg-white/5 transition-colors">
-                <Bell size={20} className="text-gray-400" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center font-bold text-sm lg:hidden">
-                {currentUser.name?.charAt(0) || "S"}
-              </div>
-            </div>
-          </div>
-        </header>
+        <Header
+          variant="app"
+          onMenuClick={() => setIsMobileMenuOpen(true)}
+          searchPlaceholder="Search subjects, topics..."
+          avatarLabel={currentUser.name?.charAt(0) || "S"}
+        />
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-8">{children}</main>

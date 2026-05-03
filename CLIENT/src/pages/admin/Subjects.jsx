@@ -1,10 +1,25 @@
-import React from "react";
+import React, { useState } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { useApp } from "../../context/AppContext";
 import { BookOpen, Plus, Edit2, Trash2 } from "lucide-react";
+import { api } from "../../services/api";
 
 const Subjects = () => {
-  const { subjects } = useApp();
+  const { subjects, refreshLearningData } = useApp();
+  const [form, setForm] = useState({ name: "", description: "" });
+  const [message, setMessage] = useState("");
+
+  const createSubject = async (event) => {
+    event.preventDefault();
+    try {
+      await api.createSubject(form);
+      setForm({ name: "", description: "" });
+      setMessage("Subject created successfully.");
+      await refreshLearningData();
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -14,11 +29,38 @@ const Subjects = () => {
             <h1 className="text-3xl font-bold mb-2">Subject Management</h1>
             <p className="text-gray-400">Manage all educational subjects</p>
           </div>
-          <button className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-xl flex items-center gap-2 transition-all">
+          <button
+            type="submit"
+            form="create-subject"
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-xl flex items-center gap-2 transition-all"
+          >
             <Plus size={18} />
             Add Subject
           </button>
         </div>
+
+        <form
+          id="create-subject"
+          onSubmit={createSubject}
+          className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl border border-white/5 bg-[#111827]/40 p-4"
+        >
+          <input
+            value={form.name}
+            onChange={(event) => setForm({ ...form, name: event.target.value })}
+            placeholder="Subject name"
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white"
+            required
+          />
+          <input
+            value={form.description}
+            onChange={(event) =>
+              setForm({ ...form, description: event.target.value })
+            }
+            placeholder="Description"
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white md:col-span-2"
+          />
+        </form>
+        {message && <div className="mb-4 text-sm text-blue-300">{message}</div>}
 
         <div className="bg-[#111827]/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden">
           <table className="w-full">

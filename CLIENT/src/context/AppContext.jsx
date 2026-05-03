@@ -1,4 +1,5 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { api, getStoredUser } from "../services/api";
 
 const AppContext = createContext();
 
@@ -293,20 +294,112 @@ const mockResults = [
   },
 ];
 
-export function AppProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState({
-    id: 1,
-    name: "Demo Student",
-    email: "demo@learnvis.com",
-    role: "student",
-    avatar: null,
-  });
+const decorateSubject = (subject) => {
+  const visuals = {
+    Physics: { icon: "Atom", color: "blue" },
+    Chemistry: { icon: "FlaskConical", color: "green" },
+    Biology: { icon: "Leaf", color: "emerald" },
+    Mathematics: { icon: "Calculator", color: "purple" },
+  };
+  const name = subject.name?.charAt(0)?.toUpperCase() + subject.name?.slice(1);
+  return {
+    ...subject,
+    name: name || subject.name,
+    topicsCount: Number(subject.topicsCount || subject.topics_count || 0),
+    progress: Number(subject.progress || 0),
+    ...(visuals[name] ||
+      visuals[subject.name] || { icon: "BookOpen", color: "blue" }),
+  };
+};
 
-  const [subjects] = useState(mockSubjects);
-  const [topics] = useState(mockTopics);
+const decorateTopic = (topic) => {
+  const difficultyMap = {
+    easy: "Beginner",
+    medium: "Intermediate",
+    hard: "Advanced",
+  };
+  return {
+    ...topic,
+    subject_id: topic.subject_id || topic.subjectId,
+    difficulty:
+      difficultyMap[topic.difficulty] || topic.difficulty || "Beginner",
+    duration: topic.duration || "45 min",
+    completed: Boolean(topic.completed),
+  };
+};
+
+export function AppProvider({ children }) {
+  const [currentUser, setCurrentUser] = useState(
+    getStoredUser() || {
+      id: 1,
+      name: "Demo Student",
+      email: "demo@learnvis.com",
+      role: "student",
+      avatar: null,
+    },
+  );
+
+  const [subjects, setSubjects] = useState(mockSubjects);
+  const [topics, setTopics] = useState(mockTopics);
   const [quizQuestions] = useState(mockQuizQuestions);
-  const [users] = useState(mockUsers);
-  const [results] = useState(mockResults);
+  const [users, setUsers] = useState(mockUsers);
+  const [results, setResults] = useState(mockResults);
+  const [apiReady, setApiReady] = useState(false);
+
+  const refreshLearningData = async () => {
+    const subjectRows = await api.subjects();
+    const nextSubjects = subjectRows.map(decorateSubject);
+    const sourceSubjects = nextSubjects.length ? nextSubjects : mockSubjects;
+    const topicResponses = await Promise.all(
+      sourceSubjects.map((subject) =>
+        api.topics(subject.id).catch(() => mockTopics[subject.id] || []),
+      ),
+    );
+    const topicRows = topicResponses.flat();
+    const groupedTopics = topicRows
+      .map(decorateTopic)
+      .reduce((grouped, topic) => {
+        const subjectId = topic.subject_id;
+        grouped[subjectId] = grouped[subjectId] || [];
+        grouped[subjectId].push(topic);
+        return grouped;
+      }, {});
+    setSubjects(sourceSubjects);
+    setTopics(Object.keys(groupedTopics).length ? groupedTopics : mockTopics);
+  };
+
+  const refreshPrivateData = async () => {
+    try {
+      const [resultRows, userRows] = await Promise.all([
+        api.results().catch(() => mockResults),
+        currentUser?.role === "admin"
+          ? api.users().catch(() => mockUsers)
+          : Promise.resolve(mockUsers),
+      ]);
+      const normalizedResults = Array.isArray(resultRows)
+        ? resultRows
+        : Array.isArray(resultRows?.quizHistory)
+          ? resultRows.quizHistory
+          : mockResults;
+      setResults(normalizedResults.length ? normalizedResults : mockResults);
+      setUsers(
+        Array.isArray(userRows) && userRows.length ? userRows : mockUsers,
+      );
+    } catch (_error) {
+      setResults(mockResults);
+      setUsers(mockUsers);
+    }
+  };
+
+  useEffect(() => {
+    refreshLearningData()
+      .then(() => setApiReady(true))
+      .catch(() => setApiReady(false));
+  }, []);
+
+  useEffect(() => {
+    if (currentUser?.id) refreshPrivateData();
+  }, [currentUser?.id, currentUser?.role]);
 
   const getSubjectById = (id) => subjects.find((s) => s.id === parseInt(id));
   const getTopicsBySubject = (subjectId) => topics[subjectId] || [];
@@ -326,6 +419,9 @@ export function AppProvider({ children }) {
     quizQuestions,
     users,
     results,
+    apiReady,
+    refreshLearningData,
+    refreshPrivateData,
     getSubjectById,
     getTopicsBySubject,
     getTopicById,

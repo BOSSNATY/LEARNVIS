@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Check } from "lucide-react";
-import logo from "../assets/img/logo-dark.png";
+import Header from "../components/Header";
+import GoogleSignInButton from "../components/GoogleSignInButton";
+import { useApp } from "../context/AppContext";
+import { api, setSession } from "../services/api";
 
 const Signup = ({ setUser }) => {
   const navigate = useNavigate();
@@ -13,6 +16,7 @@ const Signup = ({ setUser }) => {
     password: "",
     confirmPassword: "",
   });
+  const { setCurrentUser } = useApp();
 
   const passwordStrength = () => {
     const pass = formData.password;
@@ -32,13 +36,31 @@ const Signup = ({ setUser }) => {
       return;
     }
     setIsLoading(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      setUser({ role: "student", name: formData.name, email: formData.email });
+    try {
+      const data = await api.signup({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
+      const createdUser = data.user || {
+        id: data.userId,
+        name: formData.name,
+        email: formData.email,
+        role: "student",
+      };
+      setSession({ ...data, user: createdUser });
+      setCurrentUser(createdUser);
+      setUser?.(createdUser);
+      navigate(
+        createdUser.role === "admin"
+          ? "/admin/dashboard"
+          : "/student/onboarding",
+      );
+    } catch (error) {
+      alert(error.message || "Signup failed");
+    } finally {
       setIsLoading(false);
-      navigate("/student/onboarding");
-    }, 1000);
+    }
   };
 
   return (
@@ -47,15 +69,7 @@ const Signup = ({ setUser }) => {
       <div className="absolute top-[5%] right-[-10%] w-96 h-96 bg-blue-600/10 rounded-full blur-[100px]"></div>
       <div className="absolute bottom-[5%] left-[-10%] w-96 h-96 bg-purple-600/10 rounded-full blur-[100px]"></div>
 
-      {/* Brand Header */}
-      <div
-        className="flex items-center gap-3 mb-8 relative z-10 cursor-pointer"
-        onClick={() => navigate("/")}
-      >
-        <span className="loginimg-width logoimg-width">
-          <img src={logo} alt="" />
-        </span>
-      </div>
+      <Header variant="auth" />
 
       {/* Signup Card */}
       <div className="w-full max-w-md bg-[#111827]/40 backdrop-blur-2xl border border-white/10 p-8 rounded-[2rem] shadow-2xl relative z-10">
@@ -200,24 +214,7 @@ const Signup = ({ setUser }) => {
             <div className="h-[1px] bg-white/10 flex-grow"></div>
           </div>
 
-          <div className="flex gap-4 w-full">
-            <button className="flex-1 bg-[#1f2937] py-2.5 rounded-xl border border-white/5 flex items-center justify-center gap-2 hover:bg-gray-700 transition-all">
-              <img
-                src="https://www.google.com/favicon.ico"
-                className="w-4 h-4"
-                alt="G"
-              />
-              <span className="text-sm font-medium text-white">Google</span>
-            </button>
-            <button className="flex-1 bg-[#1f2937] py-2.5 rounded-xl border border-white/5 flex items-center justify-center gap-2 hover:bg-gray-700 transition-all">
-              <img
-                src="https://www.microsoft.com/favicon.ico"
-                className="w-4 h-4"
-                alt="M"
-              />
-              <span className="text-sm font-medium text-white">Microsoft</span>
-            </button>
-          </div>
+          <GoogleSignInButton setUser={setUser} mode="signup" />
 
           <p className="text-sm text-gray-400">
             Already have an account?{" "}
