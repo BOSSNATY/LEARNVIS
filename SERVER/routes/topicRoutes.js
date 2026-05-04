@@ -6,7 +6,7 @@ const topicController = require("../controllers/topicController");
 const { authMiddleware } = require("../middleware/authMiddleware");
 const { adminMiddleware } = require("../middleware/adminMiddleware");
 
-router.post("/", authMiddleware, adminMiddleware, topicController.createTopic);
+router.post("/", authMiddleware, topicController.createTopic);
 
 router.post("/custom", authMiddleware, topicController.createCustomTopic);
 

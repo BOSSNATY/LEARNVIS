@@ -4,41 +4,40 @@ exports.getDashboard = async (req, res) => {
   const userId = req.user.userId;
 
   try {
-    // 1. Subjects count
-    const [subjects] = await pool.execute(
-      `SELECT COUNT(*) as count 
-       FROM user_subjects 
-       WHERE user_id = ?`,
+    // 1. USER SUBJECTS
+    const [userSubjects] = await pool.execute(
+      `SELECT s.id, s.name
+       FROM user_subjects us
+       JOIN subjects s ON us.subject_id = s.id
+       WHERE us.user_id = ?`,
       [userId],
     );
 
-    const subjectsCount = subjects[0]?.count || 0;
+    const subjectsCount = userSubjects.length;
 
-    // 2. Quiz stats (FIXED with JOIN)
+    // 2. QUIZ STATS (🔥 FIXED)
     const [quizStats] = await pool.execute(
       `SELECT 
-          COUNT(qr.id) as totalQuizzes,
-          AVG(qr.score) as avgScore
-       FROM quiz_result qr
-       JOIN quiz_attempts qa ON qr.attempt_id = qa.id
-       WHERE qa.user_id = ?`,
+          COUNT(*) as totalQuizzes,
+          AVG(score) as avgScore
+       FROM quiz_attempts
+       WHERE user_id = ? AND finished_at IS NOT NULL`,
       [userId],
     );
 
     const quizzesCompleted = quizStats[0]?.totalQuizzes || 0;
     const averageScore = Math.round(quizStats[0]?.avgScore || 0);
 
-    // 3. Recent activity (quiz + study sessions)
+    // 3. RECENT ACTIVITY (🔥 FIXED)
     const [recentActivity] = await pool.execute(
       `
       SELECT 
           'quiz' as type,
-          qr.score as score,
-          qr.recommendation as title,
-          qa.created_at as date
-      FROM quiz_result qr
-      JOIN quiz_attempts qa ON qr.attempt_id = qa.id
-      WHERE qa.user_id = ?
+          score,
+          CONCAT('Quiz attempt') as title,
+          finished_at as date
+      FROM quiz_attempts
+      WHERE user_id = ? AND finished_at IS NOT NULL
 
       UNION ALL
 
@@ -56,23 +55,7 @@ exports.getDashboard = async (req, res) => {
       [userId, userId],
     );
 
-    // 4. Weak topics → recommendations
-    const [weakTopics] = await pool.execute(
-      `SELECT concept_tag, frequency
-       FROM mistake_profiles
-       WHERE user_id = ?
-       ORDER BY frequency DESC
-       LIMIT 3`,
-      [userId],
-    );
-
-    const recommendedTopics = weakTopics.map((t) => ({
-      subject: "AI Insight",
-      topic: t.concept_tag,
-      reason: "You struggle with this concept",
-    }));
-
-    // 5. Study streak
+    // 4. STREAK (based on study_sessions)
     const [activityDates] = await pool.execute(
       `SELECT DATE(start_time) as date
        FROM study_sessions
@@ -94,13 +77,13 @@ exports.getDashboard = async (req, res) => {
       else break;
     }
 
-    // 6. Weekly goal
+    // 5. WEEKLY GOAL (🔥 FIXED)
     const [weekly] = await pool.execute(
-      `SELECT COUNT(qr.id) as completed
-       FROM quiz_result qr
-       JOIN quiz_attempts qa ON qr.attempt_id = qa.id
-       WHERE qa.user_id = ?
-       AND qa.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`,
+      `SELECT COUNT(*) as completed
+       FROM quiz_attempts
+       WHERE user_id = ?
+       AND finished_at IS NOT NULL
+       AND finished_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`,
       [userId],
     );
 
@@ -109,15 +92,39 @@ exports.getDashboard = async (req, res) => {
       target: 5,
     };
 
-    // 7. FINAL RESPONSE
+    // 6. SUGGESTED SUBJECTS
+    const [allSubjects] = await pool.execute(
+      `SELECT id, name FROM subjects LIMIT 6`,
+    );
+
+    const userSubjectIds = userSubjects.map((s) => s.id);
+
+    const suggestedSubjects = allSubjects.filter(
+      (s) => !userSubjectIds.includes(s.id),
+    );
+
+    // 🔥 CHECK IF USER HAS TOPICS
+    const [userTopics] = await pool.execute(
+      `SELECT t.id
+   FROM user_subjects us
+   JOIN topics t ON t.subject_id = us.subject_id
+   WHERE us.user_id = ?
+   LIMIT 1`,
+      [userId],
+    );
+
+    const hasTopics = userTopics.length > 0;
+    // FINAL RESPONSE
     res.json({
+      subjects: userSubjects,
       subjectsCount,
       quizzesCompleted,
       averageScore,
       streak,
       recentActivity: recentActivity || [],
-      recommendedTopics,
       weeklyGoal,
+      suggestedSubjects,
+      hasTopics,
     });
   } catch (err) {
     console.error("Dashboard error:", err);
