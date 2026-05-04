@@ -127,6 +127,11 @@ export const api = {
         ])
       : request("/topics"),
   topic: (id) => requestFallback([`/topics/${id}`, `/topics/single/${id}`]),
+  createTopic: (payload) =>
+    request("/topics", {
+      method: "POST",
+      body: payload,
+    }),
   content: (topicId) => request(`/content/${topicId}`),
   generateContent: (payload) =>
     request("/content/generate", { method: "POST", body: payload }),

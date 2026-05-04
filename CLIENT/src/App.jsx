@@ -4,9 +4,9 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { useState } from "react";
 
 import "./styles/responsive.css";
+
 // Auth Pages
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -54,13 +54,11 @@ import PublicRoute from "./components/PublicRoute";
 import { AppProvider } from "./context/AppContext";
 
 function App() {
-  const [user, setUser] = useState(null);
-
   return (
     <AppProvider>
       <Router>
         <Routes>
-          {/* Public Routes */}
+          {/* ================= PUBLIC ROUTES ================= */}
           <Route
             path="/"
             element={
@@ -69,6 +67,7 @@ function App() {
               </PublicRoute>
             }
           />
+
           <Route
             path="/login"
             element={
@@ -77,9 +76,13 @@ function App() {
               </PublicRoute>
             }
           />
-          <Route path="/signup" element={<Signup setUser={setUser} />} />
+
+          <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          {/* Student Routes */}
+
+          {/* ================= STUDENT FLOW ================= */}
+
+          {/* DASHBOARD */}
           <Route
             path="/student/dashboard"
             element={
@@ -87,69 +90,163 @@ function App() {
                 <StudentDashboard />
               </ProtectedRoute>
             }
-          />{" "}
-          <Route path="/student/planner" element={<StudentPlanner />} />
-          <Route path="/student/calendar" element={<StudentCalendar />} />
-          <Route path="/student/onboarding" element={<StudentOnboarding />} />
-          <Route path="/student/onboarding/goal" element={<StudentPlanner />} />
-          <Route path="/student/onboarding/time" element={<StudentPlanner />} />
-          <Route path="/student/subjects" element={<StudentSubjects />} />
+          />
+
+          {/* ONBOARDING */}
+          <Route
+            path="/student/onboarding"
+            element={
+              <ProtectedRoute>
+                <StudentOnboarding />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* STEP 1: SUBJECT SELECTION */}
+          <Route
+            path="/student/subjects"
+            element={
+              <ProtectedRoute>
+                <StudentSubjects />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* STEP 2: TOPIC SELECTION */}
           <Route
             path="/student/subjects/:subjectId"
-            element={<StudentTopicSelection />}
+            element={
+              <ProtectedRoute>
+                <StudentTopicSelection />
+              </ProtectedRoute>
+            }
           />
-          <Route
-            path="/student/subjects/:subjectId/topics/:topicId"
-            element={<StudentLearnPage />}
-          />
-          <Route
-            path="/student/topics/:topicId"
-            element={<StudentLearnPage />}
-          />
+
+          {/* STEP 3: LEARNING */}
           <Route
             path="/student/learn/:topicId"
-            element={<StudentLearnPage />}
+            element={
+              <ProtectedRoute>
+                <StudentLearnPage />
+              </ProtectedRoute>
+            }
           />
+
+          {/* OPTIONAL: CONTENT UPLOAD */}
           <Route
             path="/student/learn/:topicId/upload"
-            element={<StudentContentUpload />}
+            element={
+              <ProtectedRoute>
+                <StudentContentUpload />
+              </ProtectedRoute>
+            }
           />
+
+          {/* ================= QUIZ FLOW ================= */}
+          <Route
+            path="/student/quiz/:topicId"
+            element={
+              <ProtectedRoute>
+                <StudentQuiz />
+              </ProtectedRoute>
+            }
+          />
+
           <Route
             path="/student/quiz/:topicId/start"
-            element={<StudentQuiz />}
+            element={
+              <ProtectedRoute>
+                <StudentQuiz />
+              </ProtectedRoute>
+            }
           />
-          <Route path="/student/quiz/:topicId" element={<StudentQuiz />} />
+
           <Route
             path="/student/quiz/:quizId/result"
-            element={<StudentQuizResult />}
+            element={
+              <ProtectedRoute>
+                <StudentQuizResult />
+              </ProtectedRoute>
+            }
           />
+
+          {/* ================= ANALYTICS ================= */}
           <Route
-            path="/student/mastery/:topicId"
-            element={<StudentMastery />}
+            path="/student/results"
+            element={
+              <ProtectedRoute>
+                <StudentResults />
+              </ProtectedRoute>
+            }
           />
-          <Route path="/student/retry/:attemptId" element={<StudentRetry />} />
+
+          <Route
+            path="/student/analytics"
+            element={
+              <ProtectedRoute>
+                <StudentAnalytics />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student/mistakes"
+            element={
+              <ProtectedRoute>
+                <StudentMistakes />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student/prediction"
+            element={
+              <ProtectedRoute>
+                <Prediction />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student/recommendations"
+            element={
+              <ProtectedRoute>
+                <StudentRecommendations />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ================= STUDY SYSTEM ================= */}
+          <Route path="/student/planner" element={<StudentPlanner />} />
+          <Route path="/student/calendar" element={<StudentCalendar />} />
+
           <Route path="/student/revision" element={<StudentRevision />} />
+
           <Route
             path="/student/revision/:topicId"
             element={<StudentRevision />}
           />
+
+          {/* ================= MOCK EXAM ================= */}
           <Route path="/student/mock-exam" element={<StudentMockExam />} />
           <Route path="/student/mock-exam/:id" element={<MockExamTake />} />
           <Route
             path="/student/mock-exam/:id/result"
             element={<MockExamResult />}
           />
-          <Route path="/student/results" element={<StudentResults />} />
-          <Route path="/student/analytics" element={<StudentAnalytics />} />
-          <Route path="/student/mistakes" element={<StudentMistakes />} />
-          <Route path="/student/prediction" element={<Prediction />} />
-          <Route
-            path="/student/recommendations"
-            element={<StudentRecommendations />}
-          />
+
+          {/* ================= PROFILE ================= */}
           <Route path="/student/profile" element={<StudentProfile />} />
           <Route path="/student/settings" element={<StudentSettings />} />
-          {/* Admin Routes */}
+
+          <Route
+            path="/student/mastery/:topicId"
+            element={<StudentMastery />}
+          />
+
+          <Route path="/student/retry/:attemptId" element={<StudentRetry />} />
+
+          {/* ================= ADMIN ================= */}
           <Route
             path="/admin/dashboard"
             element={
@@ -158,13 +255,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/users/:userId" element={<AdminUsers />} />
           <Route path="/admin/subjects" element={<AdminSubjects />} />
           <Route path="/admin/topics" element={<AdminTopics />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
-          {/* Redirect unknown routes */}
+
+          {/* ================= FALLBACK ================= */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
