@@ -2,23 +2,24 @@ const pool = require("../config/db");
 const { generatePlan } = require("../services/aiPlanner");
 
 // POST /api/study-plans
+
 exports.createStudyPlan = async (req, res) => {
-  const { subjectId, examDate, dailyTimeMinutes, targetScore, target_score } =
-    req.body;
+  const { subjectId, examDate, dailyTimeMinutes, targetScore } = req.body;
   const userId = req.user.userId;
-  const requestedTargetScore = targetScore || target_score || 85;
 
   if (!subjectId || !dailyTimeMinutes) {
-    return res
-      .status(400)
-      .json({ error: "subjectId and dailyTimeMinutes are required" });
+    return res.status(400).json({
+      error: "subjectId and dailyTimeMinutes are required",
+    });
   }
 
   try {
+    // 1. CHECK EXISTING PLAN
     const [existing] = await pool.execute(
       "SELECT id FROM study_plans WHERE user_id = ? AND subject_id = ?",
       [userId, subjectId],
     );
+
     if (existing.length > 0) {
       return res.status(400).json({
         error: "A study plan already exists for this subject",
@@ -26,32 +27,62 @@ exports.createStudyPlan = async (req, res) => {
       });
     }
 
-    let result;
-    try {
-      [result] = await pool.execute(
-        "INSERT INTO study_plans (user_id, subject_id, exam_date, daily_time_minutes, target_score) VALUES (?, ?, ?, ?, ?)",
-        [
-          userId,
-          subjectId,
-          examDate || null,
-          dailyTimeMinutes,
-          requestedTargetScore,
-        ],
-      );
-    } catch (insertErr) {
-      if (insertErr.code !== "ER_BAD_FIELD_ERROR") throw insertErr;
-      [result] = await pool.execute(
-        "INSERT INTO study_plans (user_id, subject_id, exam_date, daily_time_minutes) VALUES (?, ?, ?, ?)",
-        [userId, subjectId, examDate || null, dailyTimeMinutes],
+    // 2. GET TOPICS FIRST (🔥 IMPORTANT CHECK)
+    const [topics] = await pool.execute(
+      `SELECT id 
+       FROM topics 
+       WHERE subject_id = ? 
+       AND (is_custom = FALSE OR created_by = ?)`,
+      [subjectId, userId],
+    );
+
+    // ❌ STOP HERE IF NO TOPICS
+    if (topics.length === 0) {
+      return res.status(400).json({
+        error: "No topics found for this subject. Please add topics first.",
+      });
+    }
+
+    // 3. CREATE PLAN ONLY AFTER VALIDATION
+    const [result] = await pool.execute(
+      `INSERT INTO study_plans 
+       (user_id, subject_id, exam_date, daily_time_minutes, target_score)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        userId,
+        subjectId,
+        examDate || null,
+        dailyTimeMinutes,
+        targetScore || 85,
+      ],
+    );
+
+    const planId = result.insertId;
+
+    // 4. GENERATE TASKS
+    const today = new Date();
+
+    for (let i = 0; i < topics.length; i++) {
+      const topic = topics[i];
+
+      const scheduledDate = new Date(today);
+      scheduledDate.setDate(today.getDate() + i);
+
+      await pool.execute(
+        `INSERT INTO study_tasks 
+         (plan_id, topic_id, scheduled_date, status, progress_percent)
+         VALUES (?, ?, ?, 'pending', 0)`,
+        [planId, topic.id, scheduledDate.toISOString().split("T")[0]],
       );
     }
 
     res.status(201).json({
-      message: "Study plan created",
-      planId: result.insertId,
-      targetScore: requestedTargetScore,
+      message: "Study plan created successfully",
+      planId,
+      tasksGenerated: topics.length,
     });
   } catch (err) {
+    console.error("Create Study Plan Error:", err);
     res.status(500).json({ error: err.message });
   }
 };

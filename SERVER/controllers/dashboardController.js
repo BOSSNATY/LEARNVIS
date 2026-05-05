@@ -15,7 +15,12 @@ exports.getDashboard = async (req, res) => {
 
     const subjectsCount = userSubjects.length;
 
-    // 2. QUIZ STATS (🔥 FIXED)
+    // 2. ALL SUBJECTS (🔥 IMPORTANT FOR DASHBOARD)
+    const [allSubjects] = await pool.execute(
+      `SELECT id, name, description FROM subjects`,
+    );
+
+    // 3. QUIZ STATS
     const [quizStats] = await pool.execute(
       `SELECT 
           COUNT(*) as totalQuizzes,
@@ -28,13 +33,13 @@ exports.getDashboard = async (req, res) => {
     const quizzesCompleted = quizStats[0]?.totalQuizzes || 0;
     const averageScore = Math.round(quizStats[0]?.avgScore || 0);
 
-    // 3. RECENT ACTIVITY (🔥 FIXED)
+    // 4. RECENT ACTIVITY
     const [recentActivity] = await pool.execute(
       `
       SELECT 
           'quiz' as type,
           score,
-          CONCAT('Quiz attempt') as title,
+          'Quiz attempt' as title,
           finished_at as date
       FROM quiz_attempts
       WHERE user_id = ? AND finished_at IS NOT NULL
@@ -55,7 +60,7 @@ exports.getDashboard = async (req, res) => {
       [userId, userId],
     );
 
-    // 4. STREAK (based on study_sessions)
+    // 5. STREAK
     const [activityDates] = await pool.execute(
       `SELECT DATE(start_time) as date
        FROM study_sessions
@@ -77,7 +82,7 @@ exports.getDashboard = async (req, res) => {
       else break;
     }
 
-    // 5. WEEKLY GOAL (🔥 FIXED)
+    // 6. WEEKLY GOAL
     const [weekly] = await pool.execute(
       `SELECT COUNT(*) as completed
        FROM quiz_attempts
@@ -92,29 +97,19 @@ exports.getDashboard = async (req, res) => {
       target: 5,
     };
 
-    // 6. SUGGESTED SUBJECTS
-    const [allSubjects] = await pool.execute(
-      `SELECT id, name FROM subjects LIMIT 6`,
-    );
-
-    const userSubjectIds = userSubjects.map((s) => s.id);
-
-    const suggestedSubjects = allSubjects.filter(
-      (s) => !userSubjectIds.includes(s.id),
-    );
-
-    // 🔥 CHECK IF USER HAS TOPICS
+    // 7. HAS TOPICS
     const [userTopics] = await pool.execute(
       `SELECT t.id
-   FROM user_subjects us
-   JOIN topics t ON t.subject_id = us.subject_id
-   WHERE us.user_id = ?
-   LIMIT 1`,
+       FROM user_subjects us
+       JOIN topics t ON t.subject_id = us.subject_id
+       WHERE us.user_id = ?
+       LIMIT 1`,
       [userId],
     );
 
     const hasTopics = userTopics.length > 0;
-    // FINAL RESPONSE
+
+    // ✅ FINAL RESPONSE
     res.json({
       subjects: userSubjects,
       subjectsCount,
@@ -123,7 +118,7 @@ exports.getDashboard = async (req, res) => {
       streak,
       recentActivity: recentActivity || [],
       weeklyGoal,
-      suggestedSubjects,
+      allSubjects, // ✅ ADD THIS LINE
       hasTopics,
     });
   } catch (err) {
