@@ -132,6 +132,21 @@ export const api = {
       method: "POST",
       body: payload,
     }),
+  deleteTopic: (topicId) =>
+    requestFallback([`/topics/topics/${topicId}`], {
+      method: "DELETE",
+    }),
+  createStudyPlan: (data) =>
+    request("/study-plans", {
+      method: "POST",
+      body: data,
+    }),
+
+  startSession: (data) =>
+    request("/study-sessions", {
+      method: "POST",
+      body: data,
+    }),
   content: (topicId) => request(`/content/${topicId}`),
   generateContent: (payload) =>
     request("/content/generate", { method: "POST", body: payload }),

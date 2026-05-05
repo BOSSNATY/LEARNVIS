@@ -52,6 +52,7 @@ import PublicRoute from "./components/PublicRoute";
 
 // Context
 import { AppProvider } from "./context/AppContext";
+import StudyPlan from "./pages/student/StudyPlan";
 
 function App() {
   return (
@@ -67,7 +68,6 @@ function App() {
               </PublicRoute>
             }
           />
-
           <Route
             path="/login"
             element={
@@ -76,12 +76,9 @@ function App() {
               </PublicRoute>
             }
           />
-
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-
           {/* ================= STUDENT FLOW ================= */}
-
           {/* DASHBOARD */}
           <Route
             path="/student/dashboard"
@@ -91,7 +88,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           {/* ONBOARDING */}
           <Route
             path="/student/onboarding"
@@ -101,7 +97,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           {/* STEP 1: SUBJECT SELECTION */}
           <Route
             path="/student/subjects"
@@ -111,7 +106,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           {/* STEP 2: TOPIC SELECTION */}
           <Route
             path="/student/subjects/:subjectId"
@@ -121,7 +115,15 @@ function App() {
               </ProtectedRoute>
             }
           />
-
+          {/* STEP 2': PLAN SESSION */}
+          <Route
+            path="/student/session-setup/:topicId"
+            element={
+              <ProtectedRoute>
+                <StudyPlan />
+              </ProtectedRoute>
+            }
+          />
           {/* STEP 3: LEARNING */}
           <Route
             path="/student/learn/:topicId"
@@ -131,7 +133,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           {/* OPTIONAL: CONTENT UPLOAD */}
           <Route
             path="/student/learn/:topicId/upload"
@@ -141,7 +142,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           {/* ================= QUIZ FLOW ================= */}
           <Route
             path="/student/quiz/:topicId"
@@ -151,7 +151,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/student/quiz/:topicId/start"
             element={
@@ -160,7 +159,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/student/quiz/:quizId/result"
             element={
@@ -169,7 +167,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           {/* ================= ANALYTICS ================= */}
           <Route
             path="/student/results"
@@ -179,7 +176,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/student/analytics"
             element={
@@ -188,7 +184,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/student/mistakes"
             element={
@@ -197,7 +192,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/student/prediction"
             element={
@@ -206,7 +200,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/student/recommendations"
             element={
@@ -215,18 +208,14 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           {/* ================= STUDY SYSTEM ================= */}
           <Route path="/student/planner" element={<StudentPlanner />} />
           <Route path="/student/calendar" element={<StudentCalendar />} />
-
           <Route path="/student/revision" element={<StudentRevision />} />
-
           <Route
             path="/student/revision/:topicId"
             element={<StudentRevision />}
           />
-
           {/* ================= MOCK EXAM ================= */}
           <Route path="/student/mock-exam" element={<StudentMockExam />} />
           <Route path="/student/mock-exam/:id" element={<MockExamTake />} />
@@ -234,18 +223,14 @@ function App() {
             path="/student/mock-exam/:id/result"
             element={<MockExamResult />}
           />
-
           {/* ================= PROFILE ================= */}
           <Route path="/student/profile" element={<StudentProfile />} />
           <Route path="/student/settings" element={<StudentSettings />} />
-
           <Route
             path="/student/mastery/:topicId"
             element={<StudentMastery />}
           />
-
           <Route path="/student/retry/:attemptId" element={<StudentRetry />} />
-
           {/* ================= ADMIN ================= */}
           <Route
             path="/admin/dashboard"
@@ -255,14 +240,12 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/users/:userId" element={<AdminUsers />} />
           <Route path="/admin/subjects" element={<AdminSubjects />} />
           <Route path="/admin/topics" element={<AdminTopics />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
-
           {/* ================= FALLBACK ================= */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

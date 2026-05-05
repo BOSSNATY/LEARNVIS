@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApp } from "../../context/AppContext";
 import StudentLayout from "../../components/StudentLayout";
 import { api } from "../../services/api";
+import { useApp } from "../../context/AppContext";
 
 import {
   BookOpen,
-  Clock,
-  TrendingUp,
   Trophy,
-  Target,
+  TrendingUp,
   Flame,
+  Clock,
   Calendar,
 } from "lucide-react";
 
@@ -27,7 +26,7 @@ const Dashboard = () => {
         const data = await api.dashboard();
         setDashboard(data);
       } catch (err) {
-        console.error("Dashboard error:", err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -36,130 +35,56 @@ const Dashboard = () => {
     fetchDashboard();
   }, []);
 
-  // ✅ ALWAYS derive from dashboard (single source of truth)
-  const userSubjects = dashboard?.subjects || [];
+  const subjects = dashboard?.subjects || [];
+  const recentActivity = dashboard?.recentActivity || [];
+  const weeklyGoal = dashboard?.weeklyGoal || { completed: 0, target: 5 };
+  const activeSession = dashboard?.activeSession;
 
-  // ✅ Proper new user detection
-  const isNewUser =
-    !loading &&
-    userSubjects.length === 0 &&
-    (dashboard?.quizzesCompleted || 0) === 0;
-  const hasSubjects = userSubjects.length > 0;
-  const hasTopics = dashboard?.hasTopics;
-
-  // 🟢 EMPTY STATE
-  if (isNewUser) {
-    return (
-      <StudentLayout>
-        <div className="max-w-3xl mx-auto text-center mt-20">
-          <h1 className="text-3xl font-bold mb-4">Welcome to LearnVis 👋</h1>
-
-          <p className="text-gray-400 mb-8">
-            Let’s set up your learning journey in a few seconds.
-          </p>
-
-          <div className="bg-[#111827]/40 border border-white/10 rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-2">
-              Step 1: Choose your subjects
-            </h2>
-            <p className="text-gray-500 text-sm">
-              Select what you want to learn first.
-            </p>
-          </div>
-
-          <button
-            onClick={() => navigate("/student/subjects")}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold"
-          >
-            Get Started
-          </button>
-        </div>
-      </StudentLayout>
-    );
-  }
-  if (!loading && hasSubjects && !hasTopics) {
-    return (
-      <StudentLayout>
-        <div className="max-w-3xl mx-auto text-center mt-20">
-          <h1 className="text-3xl font-bold mb-4">Almost there 🚀</h1>
-
-          <p className="text-gray-400 mb-8">
-            Now choose the topics you want to focus on.
-          </p>
-
-          <div className="bg-[#111827]/40 border border-white/10 rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-2">
-              Step 2: Select or create topics
-            </h2>
-            <p className="text-gray-500 text-sm">
-              Pick topics from your subjects or add your own.
-            </p>
-          </div>
-
-          <button
-            onClick={() => navigate("/student/topics")}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold"
-          >
-            Choose Topics
-          </button>
-        </div>
-      </StudentLayout>
-    );
-  }
-
-  // ✅ STATS (from backend only)
   const stats = [
     {
       icon: BookOpen,
-      label: "Subjects",
-      value: userSubjects.length,
+      label: "Subjects Enrolled",
+      value: subjects.length,
       color: "blue",
-      change: "Active",
     },
     {
       icon: Trophy,
       label: "Quizzes",
       value: dashboard?.quizzesCompleted || 0,
       color: "yellow",
-      change: "Completed",
     },
     {
       icon: TrendingUp,
-      label: "Average Score",
+      label: "Avg Score",
       value: `${dashboard?.averageScore || 0}%`,
       color: "green",
-      change: "Performance",
     },
     {
       icon: Flame,
       label: "Streak",
       value: `${dashboard?.streak || 0} days`,
       color: "orange",
-      change: "Consistency",
     },
   ];
 
-  const recentActivity = dashboard?.recentActivity || [];
-  const weeklyGoal = dashboard?.weeklyGoal || { completed: 0, target: 5 };
-  const suggestedSubjects = dashboard?.suggestedSubjects || [];
+  if (loading) {
+    return (
+      <StudentLayout>
+        <div className="text-center py-20 text-gray-400">Loading...</div>
+      </StudentLayout>
+    );
+  }
 
   return (
     <StudentLayout>
       <div className="max-w-7xl mx-auto">
         {/* HEADER */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">
-            Welcome back,{" "}
-            <span className="text-blue-400">
-              {currentUser?.name?.split(" ")[0] || "Student"}
-            </span>
-            ! 👋
+          <h1 className="text-3xl font-bold">
+            Welcome back, {currentUser?.name?.split(" ")[0] || "Student"} 👋
           </h1>
-
           <p className="text-gray-400">
-            {loading
-              ? "Loading your progress..."
-              : "Here is your learning progress"}
+            Ready to continue your learning journey?
           </p>
         </div>
 
@@ -168,9 +93,9 @@ const Dashboard = () => {
           {stats.map((stat, index) => (
             <div
               key={index}
-              className="bg-[#111827]/40 border border-white/5 rounded-2xl p-5"
+              className="bg-[#111827]/40 backdrop-blur-xl border border-white/5 rounded-2xl p-5 hover:border-blue-500/20 transition-all"
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-start justify-between mb-4">
                 <div
                   className={`w-12 h-12 bg-${stat.color}-600/20 rounded-xl flex items-center justify-center`}
                 >
@@ -178,7 +103,6 @@ const Dashboard = () => {
                 </div>
                 <span className="text-xs text-gray-500">{stat.change}</span>
               </div>
-
               <div className="text-2xl font-bold mb-1">{stat.value}</div>
               <div className="text-gray-400 text-sm">{stat.label}</div>
             </div>
@@ -189,104 +113,107 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* LEFT */}
           <div className="lg:col-span-2 space-y-6">
-            {/* YOUR SUBJECTS */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Your Subjects</h2>
-
-              {userSubjects.length === 0 ? (
-                <div className="bg-[#111827]/40 border border-white/10 p-6 rounded-2xl text-gray-400">
-                  No subjects yet.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {userSubjects.slice(0, 4).map((subject) => (
-                    <div
-                      key={subject.id}
-                      onClick={() =>
-                        navigate(`/student/subjects/${subject.id}`)
-                      }
-                      className="bg-[#111827]/40 border border-white/5 rounded-2xl p-5 cursor-pointer hover:border-blue-500/30"
-                    >
-                      <h3 className="font-semibold">{subject.name}</h3>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 🔥 SUGGESTED SUBJECTS */}
-            {suggestedSubjects.length > 0 && (
+            {activeSession && (
               <div>
-                <h2 className="text-xl font-semibold mb-4 text-blue-400">
-                  Study the following subjects
+                <h2 className="text-xl font-semibold mb-4">
+                  Continue Learning
                 </h2>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {suggestedSubjects.map((subject) => (
+                <div className="bg-[#111827]/40 border border-white/5 rounded-2xl p-6">
+                  <h3 className="font-semibold">{activeSession.topicName}</h3>
+
+                  <p className="text-gray-400 text-sm">
+                    {activeSession.subjectName} • {activeSession.duration || 0}{" "}
+                    min
+                  </p>
+
+                  {/* progress */}
+                  <div className="w-full bg-gray-700 h-2 rounded-full mt-3">
                     <div
-                      key={subject.id}
-                      onClick={() => navigate("/student/subjects")}
-                      className="bg-[#111827]/40 border border-white/5 rounded-2xl p-5 cursor-pointer hover:border-blue-500/30"
-                    >
-                      <h3 className="font-semibold">{subject.name}</h3>
-                      <p className="text-gray-500 text-sm">Click to explore</p>
-                    </div>
-                  ))}
+                      className="bg-blue-500 h-2 rounded-full"
+                      style={{ width: `${activeSession.progress || 0}%` }}
+                    />
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      navigate(`/student/learn/${activeSession.topicId}`)
+                    }
+                    className="mt-4 px-4 py-2 bg-blue-600 rounded-xl"
+                  >
+                    Continue
+                  </button>
                 </div>
               </div>
             )}
+
+            {/* SUBJECTS PREVIEW */}
+            <div>
+              <h2 className="text-xl font-semibold mb-4 flex justify-between">
+                Your Subjects
+                <span
+                  onClick={() => navigate("/student/subjects")}
+                  className="text-blue-400 text-sm cursor-pointer"
+                >
+                  View All
+                </span>
+              </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {subjects.map((s) => (
+                  <div
+                    key={s.id}
+                    onClick={() => navigate(`/student/subjects/${s.id}`)}
+                    className="bg-[#111827]/40 p-5 rounded-2xl border border-white/5 hover:border-blue-500/30 cursor-pointer"
+                  >
+                    <h3 className="font-semibold">{s.name}</h3>
+                    <p className="text-gray-500 text-sm">
+                      {s.topicsCount || 0} topics
+                    </p>
+
+                    <div className="mt-3 h-2 bg-gray-700 rounded-full">
+                      <div
+                        className="h-2 bg-blue-500 rounded-full"
+                        style={{ width: `${s.progress || 0}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* RIGHT */}
+          {/* RIGHT SIDE */}
           <div className="space-y-6">
-            {/* ACTIVITY */}
-            <div className="bg-[#111827]/40 border border-white/5 rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Clock className="text-green-400" size={20} />
-                <h2 className="text-lg font-semibold">Recent Activity</h2>
+            {/* WEEKLY GOAL */}
+            <div className="bg-gradient-to-br from-yellow-600/20 to-orange-600/20 p-5 rounded-2xl">
+              <h2 className="font-semibold mb-3">Weekly Goal</h2>
+              <div className="text-3xl font-bold text-yellow-400">
+                {weeklyGoal.completed}/{weeklyGoal.target}
               </div>
+              <p className="text-sm text-gray-300 mt-2">
+                Keep going! You're doing great.
+              </p>
+            </div>
+
+            {/* RECENT ACTIVITY */}
+            <div className="bg-[#111827]/40 p-5 rounded-2xl border border-white/5">
+              <h2 className="font-semibold mb-4 flex items-center gap-2">
+                <Clock size={18} /> Recent Activity
+              </h2>
 
               {recentActivity.length === 0 ? (
                 <p className="text-gray-500 text-sm">No activity yet.</p>
               ) : (
-                <div className="space-y-3">
-                  {recentActivity.map((item, index) => (
-                    <div key={index} className="p-3 bg-white/5 rounded-xl">
-                      <h4 className="text-sm font-medium">{item.title}</h4>
-                      <p className="text-xs text-gray-500">
-                        {item.score
-                          ? `Score: ${item.score}%`
-                          : "Learning session"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                recentActivity.map((a, i) => (
+                  <div key={i} className="mb-3">
+                    <p className="text-sm">{a.title}</p>
+                    <p className="text-xs text-gray-500">
+                      {a.score ? `Score: ${a.score}%` : "Learning session"}
+                    </p>
+                  </div>
+                ))
               )}
-            </div>
-
-            {/* WEEKLY GOAL */}
-            <div className="bg-gradient-to-br from-yellow-600/20 to-orange-600/20 border border-yellow-500/20 rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Calendar className="text-yellow-400" size={20} />
-                <h2 className="text-lg font-semibold">Weekly Goal</h2>
-              </div>
-
-              <div className="text-center mb-3">
-                <div className="text-4xl font-bold text-yellow-400">
-                  {weeklyGoal.completed}/{weeklyGoal.target}
-                </div>
-              </div>
-
-              <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-yellow-500 to-orange-500"
-                  style={{
-                    width: `${
-                      (weeklyGoal.completed / weeklyGoal.target) * 100
-                    }%`,
-                  }}
-                />
-              </div>
             </div>
           </div>
         </div>
