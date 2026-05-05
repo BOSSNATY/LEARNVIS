@@ -117,7 +117,7 @@ function App() {
           />
           {/* STEP 2': PLAN SESSION */}
           <Route
-            path="/student/session-setup/:topicId"
+            path="/student/session-setup/:subjectId"
             element={
               <ProtectedRoute>
                 <StudyPlan />

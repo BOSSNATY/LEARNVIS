@@ -2,14 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import StudentLayout from "../../components/StudentLayout";
 import { api } from "../../services/api";
-import { useSearchParams } from "react-router-dom";
 
 const StudyPlan = () => {
-  const { topicId } = useParams();
+  const { topicId } = useParams(); // ✅ FIXED (was missing logically)
   const navigate = useNavigate();
 
   const [topic, setTopic] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     studyType: "daily",
@@ -18,59 +18,40 @@ const StudyPlan = () => {
     examDate: "",
   });
 
-  const [submitting, setSubmitting] = useState(false);
-  const [searchParams] = useSearchParams();
-  const subjectId = searchParams.get("subjectId");
-
+  // ✅ FETCH TOPIC
   useEffect(() => {
+    const fetchTopic = async () => {
+      try {
+        setLoading(true);
+
+        if (!topicId) return;
+
+        const data = await api.topic(topicId);
+
+        setTopic(data || null);
+      } catch (err) {
+        console.error("Failed to fetch topic:", err);
+        setTopic(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchTopic();
   }, [topicId]);
 
-  const fetchTopic = async () => {
-    try {
-      const data = await api.topic(topicId);
-      setTopic(data);
-    } catch (err) {
-      console.error("Failed to fetch topic:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!subjectId) {
-    alert("Missing subject. Please go back and select again.");
-    return;
+  // ❌ BLOCK INVALID STATE
+  if (!topicId) {
+    return (
+      <StudentLayout>
+        <div className="text-center py-20 text-red-400">
+          Missing topic ID. Please select a topic again.
+        </div>
+      </StudentLayout>
+    );
   }
-  const handleSubmit = async () => {
-    if (!topic) return;
 
-    try {
-      setSubmitting(true);
-
-      // ✅ 1. Create study plan (ONLY if needed)
-      await api.createStudyPlan({
-        subjectId,
-        daily_time_minutes: Number(form.daily_time_minutes),
-        examDate: form.studyType === "exam" ? form.examDate : null,
-        preferredTime: form.preferredTime,
-      });
-
-      // ✅ 2. Start session
-      const session = await api.startSession({
-        topicId,
-        sessionType: form.studyType,
-      });
-
-      // ✅ 3. Go to learning
-      navigate(`/student/learn/${topicId}?session=${session.sessionId}`);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to start learning");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
+  // 🔄 LOADING STATE
   if (loading) {
     return (
       <StudentLayout>
@@ -81,6 +62,7 @@ const StudyPlan = () => {
     );
   }
 
+  // ❌ TOPIC NOT FOUND
   if (!topic) {
     return (
       <StudentLayout>
@@ -96,6 +78,34 @@ const StudyPlan = () => {
       </StudentLayout>
     );
   }
+
+  // ✅ SUBMIT
+  const handleSubmit = async () => {
+    try {
+      setSubmitting(true);
+
+      await api.createStudyPlan({
+        subjectId: topic.subject_id, // ✅ FIXED (comes from topic)
+        topicId,
+        daily_time_minutes: Number(form.daily_time_minutes),
+        examDate: form.studyType === "exam" ? form.examDate : null,
+        preferredTime: form.preferredTime,
+        studyType: form.studyType,
+      });
+
+      const session = await api.startSession({
+        topicId,
+        sessionType: form.studyType,
+      });
+
+      navigate(`/student/learn/${topicId}?session=${session.sessionId}`);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to start learning");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <StudentLayout>
