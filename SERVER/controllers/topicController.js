@@ -1,14 +1,15 @@
 const pool = require("../config/db");
-
 const { buildTopicContent } = require("../services/contentService");
 
+/* =========================
+   CREATE TOPIC
+========================= */
 exports.createTopic = async (req, res) => {
   let { subjectId, subject_id, title, description, difficulty } = req.body;
-
   const userId = req.user.userId;
 
   try {
-    const finalSubjectId = subjectId || subject_id;
+    const finalSubjectId = Number(subjectId || subject_id);
 
     if (!finalSubjectId || !title) {
       return res.status(400).json({
@@ -30,7 +31,6 @@ exports.createTopic = async (req, res) => {
       });
     }
 
-    // insert (ALL topics are now unified)
     const [result] = await pool.execute(
       `INSERT INTO topics 
        (subject_id, title, description, difficulty, is_custom, created_by)
@@ -54,31 +54,32 @@ exports.createTopic = async (req, res) => {
   }
 };
 
+/* =========================
+   GET TOPICS BY SUBJECT
+========================= */
 exports.getTopicsBySubject = async (req, res) => {
-  const { subjectId } = req.params;
+  const subjectId = Number(req.params.subjectId);
+  const userId = req.user?.userId || null;
 
   try {
     const [topics] = await pool.execute(
-      `SELECT 
-        id,
-        subject_id,
-        title,
-        description,
-        difficulty,
-        is_custom,
-        created_by
+      `SELECT id, subject_id, title, description, difficulty, is_custom, created_by
        FROM topics
        WHERE subject_id = ?
        AND (is_custom = FALSE OR created_by = ?)`,
-      [subjectId, req.user?.userId || 0],
+      [subjectId, userId],
     );
 
     res.json(topics);
   } catch (error) {
+    console.error("Get topics error:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+/* =========================
+   GET SINGLE TOPIC
+========================= */
 exports.getTopic = async (req, res) => {
   const { id } = req.params;
 
@@ -87,18 +88,31 @@ exports.getTopic = async (req, res) => {
       id,
     ]);
 
+    if (!topic.length) {
+      return res.status(404).json({ error: "Topic not found" });
+    }
+
     res.json(topic[0]);
   } catch (error) {
+    console.error("Get topic error:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+/* =========================
+   START TOPIC (SESSION ONLY)
+   🔥 CLEANED VERSION
+========================= */
 exports.startTopic = async (req, res) => {
-  const { id: topicId } = req.params;
+  const topicId = Number(req.params.id);
   const userId = req.user.userId;
 
   try {
-    // 1. CHECK ACTIVE SESSION
+    if (!topicId) {
+      return res.status(400).json({ error: "Invalid topicId" });
+    }
+
+    // 1. check active session
     const [existing] = await pool.execute(
       `SELECT * FROM study_sessions
        WHERE user_id = ? AND topic_id = ? AND status = 'active'
@@ -112,7 +126,7 @@ exports.startTopic = async (req, res) => {
     if (existing.length > 0) {
       session = existing[0];
     } else {
-      // 2. CREATE NEW SESSION
+      // 2. create new session
       const [result] = await pool.execute(
         `INSERT INTO study_sessions (user_id, topic_id, start_time, progress, status)
          VALUES (?, ?, NOW(), 0, 'active')`,
@@ -127,12 +141,11 @@ exports.startTopic = async (req, res) => {
       session = newSession[0];
     }
 
-    // 3. GENERATE CONTENT (unchanged)
+    // 3. OPTIONAL: generate content (keep here for now)
     const content = await buildTopicContent(topicId, userId);
 
-    // 4. RETURN BOTH SESSION + CONTENT
-    res.json({
-      message: "Topic ready",
+    return res.json({
+      message: "Topic session started",
       session,
       content,
     });
@@ -142,14 +155,16 @@ exports.startTopic = async (req, res) => {
   }
 };
 
+/* =========================
+   DELETE TOPIC
+========================= */
 exports.deleteTopic = async (req, res) => {
-  const { id } = req.params;
+  const topicId = req.params.id;
   const userId = req.user.userId;
 
   try {
-    // only allow deleting OWN custom topics
     const [topic] = await pool.execute(`SELECT * FROM topics WHERE id = ?`, [
-      id,
+      topicId,
     ]);
 
     if (!topic.length) {
@@ -162,10 +177,11 @@ exports.deleteTopic = async (req, res) => {
       });
     }
 
-    await pool.execute(`DELETE FROM topics WHERE id = ?`, [id]);
+    await pool.execute(`DELETE FROM topics WHERE id = ?`, [topicId]);
 
     res.json({ message: "Topic deleted" });
   } catch (err) {
+    console.error("Delete topic error:", err);
     res.status(500).json({ error: err.message });
   }
 };
