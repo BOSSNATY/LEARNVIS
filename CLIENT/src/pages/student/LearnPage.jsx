@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
 import StudentLayout from "../../components/StudentLayout";
+import ReactMarkdown from "react-markdown";
 import {
   ArrowLeft,
   Play,
@@ -88,21 +89,25 @@ const LearnPage = () => {
   const [content, setContent] = useState(fallbackContent);
 
   useEffect(() => {
+    if (!taskId || !sessionId) return; 
     api
       .content(topicId)
       .then((data) => {
-        console.log("Learnpage fetched content:", data);
         const contentPayload = data.content || data.primary || data;
+        
+        let parsedAiData = { text: fallbackContent.text, keyPoints: fallbackContent.keyPoints };
+        try {
+          // Strip any weird markdown JSON wrappers Gemini might add
+          let rawText = contentPayload.text_content.replace(/```json\n?|\n?```/g, '').trim();
+          parsedAiData = JSON.parse(rawText);
+        } catch (e) {
+          parsedAiData.text = contentPayload.text_content; // Fallback
+        }
+
         setContent({
-          video:
-            contentPayload.type === "video"
-              ? contentPayload.video_url
-              : fallbackContent.video,
-          text:
-            contentPayload.text_content ||
-            contentPayload.content ||
-            fallbackContent.text,
-          keyPoints: fallbackContent.keyPoints,
+          video: contentPayload.type === "video" ? contentPayload.video_url : fallbackContent.video,
+          text: parsedAiData.text || fallbackContent.text,
+          keyPoints: parsedAiData.keyPoints || fallbackContent.keyPoints,
         });
       })
       .catch((err) => {
@@ -111,6 +116,28 @@ const LearnPage = () => {
       });
   }, [topicId]);
 
+  // If they try to bypass the dashboard, lock them out!
+  if (!taskId || !sessionId) {
+    return (
+      <StudentLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+          <div className="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mb-4">
+            <BookOpen size={32} />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Active Session Required</h2>
+          <p className="text-gray-400 mb-6 max-w-md">
+            To properly track your mastery and focus score, you must start this lesson from an active Study Task on your Dashboard.
+          </p>
+          <button
+            onClick={() => navigate("/student/dashboard")}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-all"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </StudentLayout>
+    );
+  }
   if (!topic) {
     return (
       <StudentLayout>
@@ -126,6 +153,31 @@ const LearnPage = () => {
       </StudentLayout>
     );
   }
+  
+
+  // If they try to bypass the dashboard, lock them out!
+  if (!taskId || !sessionId) {
+    return (
+      <StudentLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+          <div className="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mb-4">
+            <BookOpen size={32} />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Active Session Required</h2>
+          <p className="text-gray-400 mb-6 max-w-md">
+            To properly track your mastery and focus score, you must start this lesson from an active Study Task on your Dashboard.
+          </p>
+          <button
+            onClick={() => navigate("/student/dashboard")}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-all"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </StudentLayout>
+    );
+  }
+
 
   return (
     <StudentLayout>
@@ -185,7 +237,7 @@ const LearnPage = () => {
                 {activeTab === "content" ? (
                   <div className="prose prose-invert max-w-none">
                     <div className="whitespace-pre-wrap text-gray-300 leading-relaxed">
-                      {content.text}
+                      <ReactMarkdown>{content.text}</ReactMarkdown>
                     </div>
                   </div>
                 ) : (
