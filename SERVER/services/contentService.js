@@ -25,8 +25,7 @@ async function buildTopicContent(topicId, userId = null) {
   // 4. Save to DB
   await pool.execute(
     `INSERT INTO content (topic_id, type, text_content, source)
-     VALUES (?, 'text', ?, 'ai')
-     ON DUPLICATE KEY UPDATE text_content = VALUES(text_content)`,
+     VALUES (?, 'text', ?, 'ai')`,
     [topicId, aiContent],
   );
 

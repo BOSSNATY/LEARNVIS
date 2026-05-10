@@ -7,7 +7,7 @@ exports.startSession = async (req, res) => {
 
   try {
     const [result] = await pool.execute(
-      `INSERT INTO study_session
+      `INSERT INTO study_sessions
       (user_id, topic_id, start_time, session_type)
       VALUES (?, ?, NOW(), ?)`,
       [userId, task.topic_id, task.session_type || "learn"]
@@ -31,7 +31,7 @@ exports.endSession = async (req, res) => {
   try {
     // End session and calculate exact time spent
     await pool.execute(
-      `UPDATE study_session
+      `UPDATE study_sessions
        SET end_time = NOW(),
            focus_score = ?,
            fatigue_level = ?
@@ -42,7 +42,7 @@ exports.endSession = async (req, res) => {
     // Retrieve the exact time spent from the DB
     const [[session]] = await pool.execute(
       `SELECT TIMESTAMPDIFF(MINUTE, start_time, end_time) as time_spent 
-       FROM study_session 
+       FROM study_sessions 
        WHERE id = ?`,
       [session_id]
     );
@@ -76,13 +76,25 @@ exports.startFromTask = async (req, res) => {
     }
     const task = tasks[0];
 
-    // 2. Start Session
-    const [result] = await pool.execute(
-      `INSERT INTO study_session
-      (user_id, topic_id, start_time, session_type)
-      VALUES (?, ?, NOW(), ?)`,
-      [userId, task.topic_id, task.session_type || "learn"]
+    // 2. Start Session (Prevent Duplicates)
+    const [existingSession] = await pool.execute(
+      `SELECT id FROM study_sessions 
+       WHERE user_id = ? AND topic_id = ? AND status = 'active'`,
+      [userId, task.topic_id]
     );
+
+    let sessionId;
+    if (existingSession.length > 0) {
+      sessionId = existingSession[0].id;
+    } else {
+      const [result] = await pool.execute(
+        `INSERT INTO study_sessions
+        (user_id, topic_id, start_time, session_type, status, progress)
+        VALUES (?, ?, NOW(), ?, 'active', 0)`,
+        [userId, task.topic_id, task.session_type || "learn"]
+      );
+      sessionId = result.insertId;
+    }
 
 
     // 3. Fetch AI Learning Content so the student can actually learn!
@@ -90,7 +102,7 @@ exports.startFromTask = async (req, res) => {
 
     res.json({
       message: "Study session started from task",
-      sessionId: result.insertId,
+      sessionId: sessionId,
       topic: task.title,
       content: content // Send content to frontend immediately
     });

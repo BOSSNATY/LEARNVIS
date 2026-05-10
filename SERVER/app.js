@@ -19,6 +19,7 @@ const revisionRoutes = require("./routes/revisionRoutes");
 const mockExamRoutes = require("./routes/mockExamRoutes");
 const predictionRoutes = require("./routes/predictionRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const contentRoutes = require("./routes/contentRoutes");
 
 // Jobs
 const { startTaskScheduler } = require("./jobs/taskScheduler");
@@ -54,6 +55,9 @@ app.use("/api/learning-state", learningStateRoutes);
 app.use("/api/study-plans", studyPlanRoutes);
 app.use("/api/study-sessions", studySessionsRoutes);
 app.use("/api/study-tasks", studyTaskRoutes); // ← was missing from app.js
+
+// Content (for Learnpage)
+app.use("/api/content", contentRoutes);
 
 // Quiz & intelligence layer
 app.use("/api/quiz", quizRoutes);
