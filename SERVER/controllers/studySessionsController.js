@@ -97,14 +97,13 @@ exports.startFromTask = async (req, res) => {
     }
 
 
-    // 3. Fetch AI Learning Content so the student can actually learn!
-    const content = await buildTopicContent(task.topic_id, userId);
+    
+    
 
     res.json({
       message: "Study session started from task",
       sessionId: sessionId,
       topic: task.title,
-      content: content // Send content to frontend immediately
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -22,23 +22,18 @@ async function generateTopicContent(topic, userMaterials = []) {
           parts: [
             {
               text: `
-    You are an expert teacher.
+          You are an expert teacher. Create structured learning content for the topic: ${topic.title}
 
-    Create structured learning content for the topic:
+          User materials (optional reference): ${materialText}
 
-    Topic: ${topic.title}
-
-    User materials (optional reference):
-    ${materialText}
-
-    Return in this format:
-    1. Clear explanation
-    2. Key concepts (bullet points)
-    3. Simple example
-    4. Common mistakes students make
-    5. Short summary
-
-    Keep it student-friendly and exam-focused.
+          You MUST return your response as a valid JSON object with EXACTLY this structure (no markdown code blocks, just raw JSON):
+          {
+            "text": "The full lesson explanation in Markdown format (include clear explanation, examples, and common mistakes)",
+            "keyPoints": [
+              "First key concept summary",
+              "Second key concept summary",
+              "Third key concept summary"
+            ]}
                 `,
             },
           ],
