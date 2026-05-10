@@ -81,34 +81,34 @@ const StudyPlan = () => {
     );
   }
 
+  // Calculate difference in minutes between two times
   const calculateMinutes = (start, end) => {
     const [startH, startM] = start.split(":").map(Number);
     const [endH, endM] = end.split(":").map(Number);
-    
     let diff = (endH * 60 + endM) - (startH * 60 + startM);
-    if (diff < 0) diff += 24 * 60; 
+    if (diff < 0) diff += 24 * 60; // Handle overnight study
     return diff;
   };
 
-  // ✅ SUBMIT
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
-      // 1. Create the base plan
+      
       const planRes = await api.createStudyPlan({
         subjectId: topic.subject_id || topic.subjectId,
         topicId,
-        // Automatically calculate minutes from their chosen time block!
-        daily_time_minutes: calculateMinutes(form.startTime, form.endTime),
+        // The AI now receives their total available time window!
+        daily_time_minutes: calculateMinutes(form.startTime, form.endTime), 
+        // We still save the exact string (e.g. "16:00-19:00") so we can send calendar reminders later!
+        preferred_time: `${form.startTime}-${form.endTime}`, 
         examDate: form.studyType === "exam" ? form.examDate : null,
       });
 
-      // 2. Trigger the AI Planner to generate Daily Tasks!
+      // Trigger AI Planner
       await api.generatePlanTasks(planRes.planId, {
         topicIds: [topicId]
       });
 
-      // 3. Send them to Dashboard to see their new tasks
       navigate(`/student/dashboard`);
     } catch (err) {
       console.error(err);
@@ -138,26 +138,6 @@ const StudyPlan = () => {
           >
             <option value="daily">Daily Study</option>
             <option value="exam">Exam Preparation</option>
-          </select>
-        </div>
-
-        {/* DAILY TIME */}
-        <div>
-          <label className="block mb-2 text-gray-400">Daily Study Time</label>
-          <select
-            value={form.daily_time_minutes}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                daily_time_minutes: Number(e.target.value),
-              })
-            }
-            className="w-full bg-[#1f2937] p-3 rounded-xl"
-          >
-            <option value={15}>15 minutes</option>
-            <option value={30}>30 minutes</option>
-            <option value={45}>45 minutes</option>
-            <option value={60}>60 minutes</option>
           </select>
         </div>
 

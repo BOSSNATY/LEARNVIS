@@ -126,7 +126,7 @@ export const api = {
           `/topics?subjectId=${subjectId}`,
         ])
       : request("/topics"),
-  topic: (id) => requestFallback([`/topics/${id}`, `/topics/single/${id}`]),
+  topic: (id) => request(`/topics/single/${id}`),
   createTopic: (payload) =>
     request("/topics", {
       method: "POST",
@@ -171,9 +171,6 @@ export const api = {
   planner: () => request("/planner"),
   createPlan: (payload) =>
     request("/planner", { method: "POST", body: payload }),
-  generatePlanTasks: (planId, payload) =>
-    request(`/planner/${planId}/generate`, { method: "POST", body: payload }),
-  planTasks: (planId) => request(`/planner/${planId}/tasks`),
   deletePlan: (planId) => request(`/planner/${planId}`, { method: "DELETE" }),
   calendar: (params = {}) => {
     const query = new URLSearchParams(params).toString();
