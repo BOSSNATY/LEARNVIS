@@ -18,7 +18,7 @@ import StudentDashboard from "./pages/student/Dashboard";
 import StudentOnboarding from "./pages/student/Onboarding";
 import StudentSubjects from "./pages/student/Subjects";
 import StudentTopicSelection from "./pages/student/TopicSelection";
-import StudentLearnPage from "./pages/student/LearnPage";
+import StudentLearnPage from "./pages/student/Learnpage";
 import StudentQuiz from "./pages/student/Quiz";
 import StudentQuizResult from "./pages/student/QuizResult";
 import StudentResults from "./pages/student/Results";
@@ -117,7 +117,7 @@ function App() {
           />
           {/* STEP 2': PLAN SESSION */}
           <Route
-            path="/student/session-setup/:subjectId"
+            path="/student/session-setup/:topicId"
             element={
               <ProtectedRoute>
                 <StudyPlan />

@@ -234,7 +234,7 @@ const TopicSelection = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() =>
-                          navigate(`/student/session-setup/${subjectId}`)
+                          navigate(`/student/session-setup/${topic.id}`)
                         }
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold"
                       >

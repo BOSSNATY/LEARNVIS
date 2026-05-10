@@ -16,7 +16,6 @@ exports.getTodayTasks = async (req, res) => {
         st.plan_id,
         st.topic_id,
         st.scheduled_date,
-        st.day_number,
         st.session_type,
         t.title AS topic_title,
         t.difficulty
@@ -53,52 +52,45 @@ exports.completeTask = async (req, res) => {
   const { time_spent_minutes, understanding_score } = req.body;
 
   try {
-    // 1. Verify ownership
     const [tasks] = await pool.execute(
-      `
-      SELECT st.id
-      FROM study_tasks st
-      JOIN study_plans sp ON st.plan_id = sp.id
-      WHERE st.id = ? AND sp.user_id = ?
-      `,
+      `SELECT st.id, st.topic_id, sp.subject_id
+       FROM study_tasks st
+       JOIN study_plans sp ON st.plan_id = sp.id
+       WHERE st.id = ? AND sp.user_id = ?`,
       [taskId, userId],
     );
 
-    if (!tasks.length) {
-      return res.status(404).json({
-        error: "Task not found or unauthorized",
-      });
-    }
+    if (!tasks.length) return res.status(404).json({ error: "Task not found" });
+    const task = tasks[0];
 
-    // 2. Mark as completed
+    // 1. Mark task as completed
     await pool.execute(
-      `
-      UPDATE study_tasks
-      SET status = 'completed'
-      WHERE id = ?
-      `,
-      [taskId],
+      `UPDATE study_tasks
+       SET status = 'completed', time_spent = ?, understanding_score = ?, progress_percent = 100
+       WHERE id = ?`,
+      [time_spent_minutes || 0, understanding_score || null, taskId],
     );
 
-    // 3. Optional: store performance
-    if (time_spent_minutes || understanding_score) {
+    // 2. Update Global Progress / Mastery Score
+    if (understanding_score) {
       await pool.execute(
-        `
-        UPDATE study_tasks
-        SET time_spent = ?, understanding_score = ?
-        WHERE id = ?
-        `,
-        [time_spent_minutes, understanding_score, taskId],
+        `INSERT INTO learning_state 
+        (user_id, subject_id, topic_id, status, progress_percent, mastery_score)
+        VALUES (?, ?, ?, 'learning', 100, ?)
+        ON DUPLICATE KEY UPDATE
+          progress_percent = 100,
+          mastery_score = GREATEST(IFNULL(mastery_score, 0), ?),
+          updated_at = CURRENT_TIMESTAMP`,
+        [userId, task.subject_id, task.topic_id, understanding_score, understanding_score],
       );
     }
 
-    res.json({
-      message: "Task marked as completed",
-    });
+    res.json({ message: "Task marked as completed and progress updated" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 exports.markMissedTasks = async () => {
   try {

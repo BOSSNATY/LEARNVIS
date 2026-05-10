@@ -136,17 +136,22 @@ export const api = {
     requestFallback([`/topics/topics/${topicId}`], {
       method: "DELETE",
     }),
-  createStudyPlan: (data) =>
-    request("/study-plans", {
-      method: "POST",
-      body: data,
-    }),
+    createStudyPlan: (data) => request("/study-plans", { method: "POST", body: data }),
+  
+  generatePlanTasks: (planId, payload) => request(`/study-plans/${planId}/generate`, { method: "POST", body: payload }),
+  
+  planTasks: (planId) => request(`/study-plans/${planId}/tasks`),
 
-  startSession: (data) =>
-    request("/study-sessions", {
-      method: "POST",
-      body: data,
-    }),
+  startSession: (data) => request("/study-sessions/start", { method: "POST", body: data }),
+  
+  startSessionFromTask: (taskId) => request(`/study-sessions/start-from-task/${taskId}`, { method: "POST" }),
+  
+  endSession: (data) => request("/study-sessions/end", { method: "POST", body: data }),
+  
+  todayTasks: () => request("/study-tasks/today"),
+  
+  completeTask: (taskId, payload = {}) => request(`/study-tasks/${taskId}/complete`, { method: "POST", body: payload }),
+
   content: (topicId) => request(`/content/${topicId}`),
   generateContent: (payload) =>
     request("/content/generate", { method: "POST", body: payload }),
@@ -176,12 +181,6 @@ export const api = {
   },
   completeCalendarSession: (payload) =>
     request("/calendar/complete-session", { method: "POST", body: payload }),
-  todayTasks: () => request("/study-tasks/today"),
-  completeTask: (taskId, payload = {}) =>
-    request(`/study-tasks/${taskId}/complete`, {
-      method: "POST",
-      body: payload,
-    }),
   generateQuiz: (payload) =>
     request("/quiz/generate", { method: "POST", body: payload }),
   quiz: (id) => request(`/quiz/${id}`),

@@ -130,3 +130,49 @@ exports.generateMicroLesson = async (concept, topic) => {
     return `Basic explanation of ${concept}: Review the definition and try simple examples.`;
   }
 };
+
+// 🔹 Generate Study Plan
+exports.generatePlan = async (topics, totalDays, dailyTimeMinutes) => {
+  return safeGenerate(async () => {
+    const prompt = `
+      You are an expert AI study planner.
+
+      Topics to cover:
+      ${JSON.stringify(topics)}
+
+      Constraints:
+      - Total days available: ${totalDays}
+      - Daily study time: ${dailyTimeMinutes} minutes
+
+      Create a highly optimized day-by-day study plan.
+      For each day, pick ONE primary topic (from the provided list) to focus on.
+      Include the session type ("learn", "review", or "quiz") and specific subtopics.
+
+      Requirements:
+      - Plan exactly ${totalDays} days (from day 0 to day ${totalDays - 1}).
+      - Ensure all topics are covered at least once.
+      - Incorporate "review" or "quiz" days for better retention.
+      - "parentTopic" MUST MATCH EXACTLY the title of one of the provided topics.
+
+      Return STRICT JSON format:
+      [
+        {
+          "day": 0,
+          "type": "learn",
+          "parentTopic": "Exact Topic Title",
+          "subtopics": ["concept 1", "concept 2"]
+        }
+      ]
+      `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite-preview",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    let text = response.text.trim();
+    text = text.replace(/```json|```/g, "");
+
+    return JSON.parse(text);
+  });
+};

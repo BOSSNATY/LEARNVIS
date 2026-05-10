@@ -46,16 +46,16 @@ exports.createStudyPlan = async (req, res) => {
     // 3. CREATE PLAN ONLY AFTER VALIDATION
     const [result] = await pool.execute(
       `INSERT INTO study_plans 
-       (user_id, subject_id, exam_date, daily_time_minutes, target_score)
-       VALUES (?, ?, ?, ?, ?)`,
+       (user_id, subject_id, exam_date, daily_time_minutes)
+       VALUES (?, ?, ?, ?)`,
       [
         userId,
         subjectId,
         examDate || null,
-        dailyTimeMinutes,
-        targetScore || 85,
+        dailyTimeMinutes
       ],
     );
+
 
     const planId = result.insertId;
 
@@ -70,22 +70,22 @@ exports.createStudyPlan = async (req, res) => {
 
       await pool.execute(
         `INSERT INTO study_tasks 
-         (plan_id, topic_id, scheduled_date, status, progress_percent)
-         VALUES (?, ?, ?, 'pending', 0)`,
+         (plan_id, topic_id, scheduled_date, status, progress_percent, session_type)
+         VALUES (?, ?, ?, 'pending', 0, 'learn')`,
         [planId, topic.id, scheduledDate.toISOString().split("T")[0]],
       );
-    }
+
 
     res.status(201).json({
       message: "Study plan created successfully",
       planId,
       tasksGenerated: topics.length,
     });
-  } catch (err) {
+  }} catch (err) {
     console.error("Create Study Plan Error:", err);
     res.status(500).json({ error: err.message });
   }
-};
+}
 
 // POST /api/study-plans/:planId/generate
 exports.generateDailyTasks = async (req, res) => {

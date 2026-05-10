@@ -13,10 +13,12 @@ const StudyPlan = () => {
 
   const [form, setForm] = useState({
     studyType: "daily",
-    daily_time_minutes: 30,
-    preferredTime: "evening",
+    daily_time_minutes: 30, 
+    startTime: "16:00",     
+    endTime: "19:00",       
     examDate: "",
   });
+
 
   // ✅ FETCH TOPIC
   useEffect(() => {
@@ -79,33 +81,43 @@ const StudyPlan = () => {
     );
   }
 
+  const calculateMinutes = (start, end) => {
+    const [startH, startM] = start.split(":").map(Number);
+    const [endH, endM] = end.split(":").map(Number);
+    
+    let diff = (endH * 60 + endM) - (startH * 60 + startM);
+    if (diff < 0) diff += 24 * 60; 
+    return diff;
+  };
+
   // ✅ SUBMIT
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
-
-      await api.createStudyPlan({
-        subjectId: topic.subject_id, // ✅ FIXED (comes from topic)
+      // 1. Create the base plan
+      const planRes = await api.createStudyPlan({
+        subjectId: topic.subject_id || topic.subjectId,
         topicId,
-        daily_time_minutes: Number(form.daily_time_minutes),
+        // Automatically calculate minutes from their chosen time block!
+        daily_time_minutes: calculateMinutes(form.startTime, form.endTime),
         examDate: form.studyType === "exam" ? form.examDate : null,
-        preferredTime: form.preferredTime,
-        studyType: form.studyType,
       });
 
-      const session = await api.startSession({
-        topicId,
-        sessionType: form.studyType,
+      // 2. Trigger the AI Planner to generate Daily Tasks!
+      await api.generatePlanTasks(planRes.planId, {
+        topicIds: [topicId]
       });
 
-      navigate(`/student/learn/${topicId}?session=${session.sessionId}`);
+      // 3. Send them to Dashboard to see their new tasks
+      navigate(`/student/dashboard`);
     } catch (err) {
       console.error(err);
-      alert("Failed to start learning");
+      alert("Failed to create AI study plan");
     } finally {
       setSubmitting(false);
     }
   };
+
 
   return (
     <StudentLayout>
@@ -149,23 +161,35 @@ const StudyPlan = () => {
           </select>
         </div>
 
-        {/* PREFERRED TIME */}
+        {/* ACTUAL STUDY TIME WINDOW */}
         <div>
           <label className="block mb-2 text-gray-400">
-            Preferred Study Time
+            Study Time Window
           </label>
-          <select
-            value={form.preferredTime}
-            onChange={(e) =>
-              setForm({ ...form, preferredTime: e.target.value })
-            }
-            className="w-full bg-[#1f2937] p-3 rounded-xl"
-          >
-            <option value="morning">Morning</option>
-            <option value="afternoon">Afternoon</option>
-            <option value="evening">Evening</option>
-          </select>
+          <div className="flex items-center gap-4">
+            <input
+              type="time"
+              value={form.startTime}
+              onChange={(e) =>
+                setForm({ ...form, startTime: e.target.value })
+              }
+              className="flex-1 bg-[#1f2937] p-3 rounded-xl border border-white/10 focus:border-blue-500 outline-none"
+            />
+            <span className="text-gray-400 font-medium">to</span>
+            <input
+              type="time"
+              value={form.endTime}
+              onChange={(e) =>
+                setForm({ ...form, endTime: e.target.value })
+              }
+              className="flex-1 bg-[#1f2937] p-3 rounded-xl border border-white/10 focus:border-blue-500 outline-none"
+            />
+          </div>
+          <p className="text-sm text-blue-400 mt-2">
+            Total daily study time: {Math.floor(calculateMinutes(form.startTime, form.endTime) / 60)}h {calculateMinutes(form.startTime, form.endTime) % 60}m
+          </p>
         </div>
+
 
         {/* EXAM DATE */}
         {form.studyType === "exam" && (

@@ -15,61 +15,76 @@ import {
   Bookmark,
 } from "lucide-react";
 import { api } from "../../services/api";
+import { useLocation } from "react-router-dom"; 
 
 const LearnPage = () => {
   const navigate = useNavigate();
   const { topicId } = useParams();
   const { getTopicById, getSubjectById } = useApp();
   const [activeTab, setActiveTab] = useState("content");
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const taskId = searchParams.get('taskId');
+  const sessionId = searchParams.get('session');
 
   const topic = getTopicById(topicId);
   const subject = topic
     ? getSubjectById(topic.subject_id || topic.subjectId || 1)
     : null;
 
+    const handleCompleteTask = async () => {
+      try {
+        if (sessionId) await api.endSession({ session_id: sessionId, focus_score: 80 });
+        if (taskId) await api.completeTask(taskId, { understanding_score: 85 });
+        navigate("/student/dashboard");
+      } catch (err) {
+        alert("Failed to complete task");
+      }
+    };
+  
   const fallbackContent = {
     video: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Placeholder
     text: `
-# Motion and Kinematics
+      # Motion and Kinematics
 
-## Introduction
-Motion is a fundamental concept in physics that describes how objects move through space and time. Understanding motion is essential for explaining everything from the movement of planets to the trajectory of a thrown ball.
+      ## Introduction
+      Motion is a fundamental concept in physics that describes how objects move through space and time. Understanding motion is essential for explaining everything from the movement of planets to the trajectory of a thrown ball.
 
-## Key Concepts
+      ## Key Concepts
 
-### 1. Position
-Position refers to the location of an object relative to a reference point. It is typically measured in meters (m) and can be positive or negative depending on the chosen coordinate system.
+      ### 1. Position
+      Position refers to the location of an object relative to a reference point. It is typically measured in meters (m) and can be positive or negative depending on the chosen coordinate system.
 
-### 2. Displacement
-Displacement is the change in position of an object. It is a vector quantity, meaning it has both magnitude and direction.
+      ### 2. Displacement
+      Displacement is the change in position of an object. It is a vector quantity, meaning it has both magnitude and direction.
 
-**Formula:** Δx = x₂ - x₁
+      **Formula:** Δx = x₂ - x₁
 
-### 3. Velocity
-Velocity is the rate of change of displacement with respect to time. It tells us how fast an object is moving and in what direction.
+      ### 3. Velocity
+      Velocity is the rate of change of displacement with respect to time. It tells us how fast an object is moving and in what direction.
 
-**Formula:** v = Δx/Δt
+      **Formula:** v = Δx/Δt
 
-### 4. Acceleration
-Acceleration is the rate of change of velocity with respect to time. An object accelerates when it speeds up, slows down, or changes direction.
+      ### 4. Acceleration
+      Acceleration is the rate of change of velocity with respect to time. An object accelerates when it speeds up, slows down, or changes direction.
 
-**Formula:** a = Δv/Δt
+      **Formula:** a = Δv/Δt
 
-## Real-World Applications
-- **Sports:** Understanding projectile motion helps athletes optimize their performance
-- **Transportation:** Engineers use kinematics to design safer vehicles
-- **Space Exploration:** Calculating trajectories for satellites and spacecraft
+      ## Real-World Applications
+      - **Sports:** Understanding projectile motion helps athletes optimize their performance
+      - **Transportation:** Engineers use kinematics to design safer vehicles
+      - **Space Exploration:** Calculating trajectories for satellites and spacecraft
 
-## Summary
-Kinematics provides the mathematical tools to describe motion. By understanding position, displacement, velocity, and acceleration, we can analyze and predict how objects move in the physical world.
-    `,
-    keyPoints: [
-      "Position is the location relative to a reference point",
-      "Displacement is a vector quantity with magnitude and direction",
-      "Velocity is displacement divided by time",
-      "Acceleration is the rate of change of velocity",
-    ],
-  };
+      ## Summary
+      Kinematics provides the mathematical tools to describe motion. By understanding position, displacement, velocity, and acceleration, we can analyze and predict how objects move in the physical world.
+          `,
+          keyPoints: [
+            "Position is the location relative to a reference point",
+            "Displacement is a vector quantity with magnitude and direction",
+            "Velocity is displacement divided by time",
+            "Acceleration is the rate of change of velocity",
+          ],
+        };
   const [content, setContent] = useState(fallbackContent);
 
   useEffect(() => {
@@ -197,6 +212,14 @@ Kinematics provides the mathematical tools to describe motion. By understanding 
                 <Share2 size={18} />
                 <span>Share</span>
               </button>
+              {(taskId || sessionId) && (
+                <button 
+                  onClick={handleCompleteTask}
+                  className="ml-auto px-6 py-2 bg-green-600 hover:bg-green-500 rounded-xl font-bold transition-all"
+                >
+                  Mark as Complete
+                </button>
+              )}
             </div>
           </div>
 

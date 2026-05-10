@@ -23,8 +23,11 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const data = await api.dashboard();
-        setDashboard(data);
+        const [dashData, tasksData] = await Promise.all([
+          api.dashboard(),
+          api.todayTasks().catch(() => ({ tasks: [] })) // catch if none exist
+        ]);
+        setDashboard({ ...dashData, todayTasks: tasksData.tasks || [] });
       } catch (err) {
         console.error(err);
       } finally {
@@ -146,6 +149,42 @@ const Dashboard = () => {
                 </div>
               </div>
             )}
+            
+            {/* TODAY'S AI STUDY TASKS */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Calendar size={20} className="text-blue-400" /> Today's Plan
+              </h2>
+              {dashboard?.todayTasks?.length > 0 ? (
+                <div className="space-y-3">
+                  {dashboard.todayTasks.map((task) => (
+                    <div key={task.id} className="bg-[#1f2937] p-5 rounded-2xl flex items-center justify-between border border-white/5 hover:border-blue-500/30 transition-all">
+                      <div>
+                        <h3 className="font-semibold text-lg">{task.topic_title}</h3>
+                        <p className="text-sm text-gray-400 capitalize">{task.session_type} Session • {task.difficulty} Difficulty</p>
+                      </div>
+                      <button 
+                        onClick={async () => {
+                          try {
+                            const session = await api.startSessionFromTask(task.id);
+                            navigate(`/student/learn/${task.topic_id}?taskId=${task.id}&session=${session.sessionId}`);
+                          } catch (err) {
+                            alert("Failed to start session");
+                          }
+                        }}
+                        className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-medium transition-colors"
+                      >
+                        Start Learning
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-[#111827]/40 p-6 rounded-2xl border border-white/5 text-center text-gray-400">
+                  You have no tasks scheduled for today. Go to a Subject to create a Study Plan!
+                </div>
+              )}
+            </div>
 
             {/* SUBJECTS PREVIEW */}
             <div>
