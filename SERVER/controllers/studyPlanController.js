@@ -4,12 +4,14 @@ const { generatePlan } = require("../services/aiPlanner");
 // POST /api/study-plans
 
 exports.createStudyPlan = async (req, res) => {
-  const { subjectId, examDate, dailyTimeMinutes, targetScore } = req.body;
+  console.log("Create Study Plan Request Body:", req.body); // DEBUG
+  
+  const { subjectId, examDate, daily_time_minutes, targetScore, preferred_time } = req.body;
   const userId = req.user.userId;
 
-  if (!subjectId || !dailyTimeMinutes) {
+  if (!subjectId || !daily_time_minutes) {
     return res.status(400).json({
-      error: "subjectId and dailyTimeMinutes are required",
+      error: `subjectId (${subjectId}) and daily_time_minutes (${daily_time_minutes}) are required`,
     });
   }
 
@@ -21,10 +23,9 @@ exports.createStudyPlan = async (req, res) => {
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({
-        error: "A study plan already exists for this subject",
-        existingPlanId: existing[0].id,
-      });
+      // Overwrite the existing plan
+      await pool.execute("DELETE FROM study_tasks WHERE plan_id = ?", [existing[0].id]);
+      await pool.execute("DELETE FROM study_plans WHERE id = ?", [existing[0].id]);
     }
 
     // 2. GET TOPICS FIRST (🔥 IMPORTANT CHECK)
@@ -46,13 +47,14 @@ exports.createStudyPlan = async (req, res) => {
     // 3. CREATE PLAN ONLY AFTER VALIDATION
     const [result] = await pool.execute(
       `INSERT INTO study_plans 
-       (user_id, subject_id, exam_date, daily_time_minutes)
-       VALUES (?, ?, ?, ?)`,
+       (user_id, subject_id, exam_date, daily_time_minutes, preferred_time)
+       VALUES (?, ?, ?, ?, ?)`,
       [
         userId,
         subjectId,
         examDate || null,
-        dailyTimeMinutes
+        daily_time_minutes,
+        preferred_time || null
       ],
     );
 
@@ -74,14 +76,14 @@ exports.createStudyPlan = async (req, res) => {
          VALUES (?, ?, ?, 'pending', 0, 'learn')`,
         [planId, topic.id, scheduledDate.toISOString().split("T")[0]],
       );
-
+    } // Close the for loop properly
 
     res.status(201).json({
       message: "Study plan created successfully",
       planId,
       tasksGenerated: topics.length,
     });
-  }} catch (err) {
+  } catch (err) {
     console.error("Create Study Plan Error:", err);
     res.status(500).json({ error: err.message });
   }
@@ -176,11 +178,18 @@ exports.generateDailyTasks = async (req, res) => {
         continue;
       }
 
+      // Safely calculate the date in JS instead of MySQL
+      const scheduledDate = new Date();
+      scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
+      const formattedDate = scheduledDate.toISOString().split("T")[0];
+
       const [taskRes] = await pool.execute(
-        `INSERT INTO study_tasks (plan_id, topic_id, scheduled_date, session_type)
-         VALUES (?, ?, DATE_ADD(CURDATE(), INTERVAL ? DAY), ?)`,
-        [planId, topic.id, dayOffset, dayPlan.type || "learn"],
+        `INSERT INTO study_tasks (plan_id, topic_id, scheduled_date, session_type, status, progress_percent)
+         VALUES (?, ?, ?, ?, 'pending', 0)`,
+        [planId, topic.id, formattedDate, dayPlan.type || "learn"],
       );
+
+
 
       savedTasks.push({
         taskId: taskRes.insertId,
@@ -200,6 +209,7 @@ exports.generateDailyTasks = async (req, res) => {
       tasks: savedTasks,
     });
   } catch (err) {
+    console.error("Generate tasks error:", err);
     res.status(500).json({ error: err.message });
   }
 };
