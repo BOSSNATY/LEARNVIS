@@ -91,6 +91,7 @@ const LearnPage = () => {
     api
       .content(topicId)
       .then((data) => {
+        console.log("Learnpage fetched content:", data);
         const contentPayload = data.content || data.primary || data;
         setContent({
           video:
@@ -104,7 +105,10 @@ const LearnPage = () => {
           keyPoints: fallbackContent.keyPoints,
         });
       })
-      .catch(() => setContent(fallbackContent));
+      .catch((err) => {
+        console.error("Learnpage content fetch error:", err);
+        setContent(fallbackContent);
+      });
   }, [topicId]);
 
   if (!topic) {
