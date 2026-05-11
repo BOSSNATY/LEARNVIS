@@ -3,6 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
 import StudentLayout from "../../components/StudentLayout";
 import ReactMarkdown from "react-markdown";
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import {
   ArrowLeft,
   Play,
@@ -17,6 +20,7 @@ import {
 } from "lucide-react";
 import { api } from "../../services/api";
 import { useLocation } from "react-router-dom"; 
+
 
 const LearnPage = () => {
   const navigate = useNavigate();
@@ -91,7 +95,7 @@ const LearnPage = () => {
   useEffect(() => {
     if (!taskId || !sessionId) return; 
     api
-      .content(topicId)
+      .content(topicId,sessionId)
       .then((data) => {
         const contentPayload = data.content || data.primary || data;
         
@@ -111,13 +115,13 @@ const LearnPage = () => {
         });
       })
       .catch((err) => {
-        console.error("Learnpage content fetch error:", err);
-        setContent(fallbackContent);
+        console.error("Security Check Failed:", err);
+        setContent(null);
       });
   }, [topicId]);
 
   // If they try to bypass the dashboard, lock them out!
-  if (!taskId || !sessionId) {
+  if (!taskId || !sessionId || content === null) {
     return (
       <StudentLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
@@ -154,30 +158,6 @@ const LearnPage = () => {
     );
   }
   
-
-  // If they try to bypass the dashboard, lock them out!
-  if (!taskId || !sessionId) {
-    return (
-      <StudentLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-          <div className="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mb-4">
-            <BookOpen size={32} />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">Active Session Required</h2>
-          <p className="text-gray-400 mb-6 max-w-md">
-            To properly track your mastery and focus score, you must start this lesson from an active Study Task on your Dashboard.
-          </p>
-          <button
-            onClick={() => navigate("/student/dashboard")}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-all"
-          >
-            Go to Dashboard
-          </button>
-        </div>
-      </StudentLayout>
-    );
-  }
-
 
   return (
     <StudentLayout>
@@ -237,7 +217,7 @@ const LearnPage = () => {
                 {activeTab === "content" ? (
                   <div className="prose prose-invert max-w-none">
                     <div className="whitespace-pre-wrap text-gray-300 leading-relaxed">
-                      <ReactMarkdown>{content.text}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{content.text}</ReactMarkdown>
                     </div>
                   </div>
                 ) : (
