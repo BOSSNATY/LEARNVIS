@@ -56,8 +56,20 @@ exports.uploadContent = async (req, res) => {
 exports.getContent = async (req, res) => {
   const { topicId } = req.params;
   const userId = req.user?.id || req.user?.userId;
+  const sessionId = req.query.sessionId;
+
 
   try {
+    
+      const [[validSession]] = await pool.execute(
+        `SELECT id FROM study_sessions 
+         WHERE id = ? AND user_id = ? AND topic_id = ? AND status = 'active'`,
+        [sessionId, userId, topicId]
+      );
+      if (!validSession) {
+        return res.status(403).json({ error: "Access Denied: No active session found for this topic." });
+      }
+
     const [[cached]] = await pool.execute(
       "SELECT * FROM content WHERE topic_id = ? ORDER BY id DESC LIMIT 1",
       [topicId],
