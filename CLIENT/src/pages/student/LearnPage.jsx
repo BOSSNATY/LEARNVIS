@@ -27,6 +27,7 @@ const LearnPage = () => {
   const { topicId } = useParams();
   const { getTopicById, getSubjectById } = useApp();
   const [activeTab, setActiveTab] = useState("content");
+  const [stats, setStats] = useState({ progress: 0, mastery: 0 });
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const taskId = searchParams.get('taskId');
@@ -112,6 +113,10 @@ const LearnPage = () => {
           video: contentPayload.type === "video" ? contentPayload.video_url : fallbackContent.video,
           text: parsedAiData.text || fallbackContent.text,
           keyPoints: parsedAiData.keyPoints || fallbackContent.keyPoints,
+        });
+        setStats({
+          progress: data.learningState?.progress_percent || 0,
+          mastery: data.learningState?.mastery_score || 0,
         });
       })
       .catch((err) => {
@@ -318,26 +323,23 @@ const LearnPage = () => {
             </div>
 
             {/* Progress */}
-            <div className="bg-[#111827]/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
-              <h3 className="font-semibold mb-4">Your Progress</h3>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-gray-400">Content watched</span>
-                    <span className="text-white">75%</span>
-                  </div>
-                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div className="w-3/4 h-full bg-green-500 rounded-full"></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-gray-400">Notes taken</span>
-                    <span className="text-white">3</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            
+        <div className="flex justify-between text-sm mb-2">
+          <span className="text-gray-400">Topic Mastery</span>
+          <span className="text-white">{stats.mastery}%</span>
+        </div>
+        <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-4">
+          <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${stats.mastery}%` }}></div>
+        </div>
+
+        <div className="flex justify-between text-sm mb-2">
+          <span className="text-gray-400">Total Progress</span>
+          <span className="text-white">{stats.progress}%</span>
+        </div>
+        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${stats.progress}%` }}></div>
+        </div>
+
           </div>
         </div>
       </div>
