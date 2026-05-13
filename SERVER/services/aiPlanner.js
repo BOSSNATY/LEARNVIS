@@ -50,7 +50,7 @@ exports.generateQuizAI = async ({ topic, difficulty, count }) => {
             `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "models/gemini-3.1-flash-lite",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
@@ -85,7 +85,7 @@ exports.rephraseQuestionsAI = async (questions) => {
         `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "models/gemini-3.1-flash-lite",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
@@ -99,7 +99,7 @@ exports.rephraseQuestionsAI = async (questions) => {
 exports.generateMicroLesson = async (concept, topic) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "models/gemini-3.1-flash-lite",
       contents: [
         {
           role: "user",
@@ -166,7 +166,7 @@ exports.generatePlan = async (topics, totalDays, dailyTimeMinutes) => {
       `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "models/gemini-3.1-flash-lite",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 

@@ -15,25 +15,25 @@ async function generateTopicContent(topic, userMaterials = []) {
       : "No user materials provided";
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "models/gemini-3.1-flash-lite",
       contents: [
         {
           role: "user",
           parts: [
             {
               text: `
-          You are an expert teacher. Create structured learning content for the topic: ${topic.title}
+            You are an expert teacher. Create structured learning content for the topic: ${topic.title}
 
-          User materials (optional reference): ${materialText}
+            User materials (optional reference): ${materialText}
 
-          You MUST return your response as a valid JSON object with EXACTLY this structure (no markdown code blocks, just raw JSON):
-          {
-            "text": "The full lesson explanation in Markdown format (include clear explanation, examples, and common mistakes)",
-            "keyPoints": [
-              "First key concept summary",
-              "Second key concept summary",
-              "Third key concept summary"
-            ]}
+            You MUST return your response as a valid JSON object with EXACTLY this structure (no markdown code blocks, just raw JSON):
+            {
+              "text": "The full lesson explanation in Markdown format (include clear explanation, examples, and common mistakes)",
+              "keyPoints": [
+                "First key concept summary",
+                "Second key concept summary",
+                "Third key concept summary"
+              ]}
                 `,
             },
           ],

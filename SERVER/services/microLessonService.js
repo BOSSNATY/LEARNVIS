@@ -14,7 +14,7 @@ function cleanResponse(text) {
 
 async function generateMicroLesson(concept, topicTitle) {
   const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "models/gemini-3.1-flash-lite",
     contents: [
       {
         role: "user",
