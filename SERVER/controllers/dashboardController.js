@@ -4,7 +4,7 @@ exports.getDashboard = async (req, res) => {
   const userId = req.user.userId;
 
   try {
-    // 1. USER SUBJECTS
+
     const [userSubjects] = await pool.execute(
       `SELECT s.id, s.name
        FROM user_subjects us
@@ -15,12 +15,12 @@ exports.getDashboard = async (req, res) => {
 
     const subjectsCount = userSubjects.length;
 
-    // 2. ALL SUBJECTS (🔥 IMPORTANT FOR DASHBOARD)
+    
     const [allSubjects] = await pool.execute(
       `SELECT id, name, description FROM subjects`,
     );
 
-    // 3. QUIZ STATS
+
     const [quizStats] = await pool.execute(
       `SELECT 
           COUNT(*) as totalQuizzes,
@@ -33,7 +33,7 @@ exports.getDashboard = async (req, res) => {
     const quizzesCompleted = quizStats[0]?.totalQuizzes || 0;
     const averageScore = Math.round(quizStats[0]?.avgScore || 0);
 
-    // 4. RECENT ACTIVITY
+
     const [recentActivity] = await pool.execute(
       `
       SELECT 
