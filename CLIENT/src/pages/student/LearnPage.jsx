@@ -32,6 +32,8 @@ const LearnPage = () => {
   const searchParams = new URLSearchParams(location.search);
   const taskId = searchParams.get('taskId');
   const sessionId = searchParams.get('session');
+  const taskType = searchParams.get('type');
+
 
   const topic = getTopicById(topicId);
   const subject = topic
@@ -224,7 +226,7 @@ const LearnPage = () => {
                     <div className="whitespace-pre-wrap text-gray-300 leading-relaxed">
                       <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{content.text}</ReactMarkdown>
                     </div>    
-                  <div className="mt-12 p-8 bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-3xl text-center">
+                    {taskType === 'quiz' && (<div className="mt-12 p-8 bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-3xl text-center">
                       <h3 className="text-xl font-bold mb-2">Ready to master this topic?</h3>
                       <p className="text-gray-400 mb-6">Test your knowledge now to boost your Mastery Score and unlock the next level.</p>
                       <button 
@@ -234,7 +236,7 @@ const LearnPage = () => {
                         Start Mastery Quiz
                         <ChevronRight size={20} />
                       </button>
-                    </div>
+                    </div>)}
                   </div>
                 ) : (
                   <div className="text-center py-8">
