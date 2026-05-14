@@ -25,36 +25,29 @@ exports.startSession = async (req, res) => {
 };
 
 exports.endSession = async (req, res) => {
-  const userId = req.user.id;
-  const { session_id, focus_score, fatigue_level } = req.body;
+  const { sessionId, taskId, focusScore } = req.body;
 
-  try {
-    // End session and calculate exact time spent
+  // 1. Calculate time spent automatically
+  const [[session]] = await pool.execute("SELECT start_time FROM study_sessions WHERE id = ?", [sessionId]);
+  const timeSpentMinutes = Math.round((new Date() - new Date(session.start_time)) / 60000);
+
+  // 2. Update Session
+  await pool.execute(
+    "UPDATE study_sessions SET end_time = NOW(), focus_score = ?, status = 'completed' WHERE id = ?",
+    [focusScore || 80, sessionId]
+  );
+
+  // 3. Update Task in ONE go
+  if (taskId) {
     await pool.execute(
-      `UPDATE study_sessions
-       SET end_time = NOW(),
-           focus_score = ?,
-           fatigue_level = ?
-       WHERE id = ? AND user_id = ?`,
-      [focus_score || null, fatigue_level || null, session_id, userId]
+      "UPDATE study_tasks SET status = 'completed', time_spent = ?, progress_percent = 100 WHERE id = ?",
+      [timeSpentMinutes, taskId]
     );
-
-    // Retrieve the exact time spent from the DB
-    const [[session]] = await pool.execute(
-      `SELECT TIMESTAMPDIFF(MINUTE, start_time, end_time) as time_spent 
-       FROM study_sessions 
-       WHERE id = ?`,
-      [session_id]
-    );
-
-    res.json({ 
-      message: "Session ended",
-      timeSpentMinutes: Math.max(session.time_spent, 1) 
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
+
+  res.json({ message: "Session tracked successfully!", timeSpent: timeSpentMinutes });
 };
+
 
 exports.startFromTask = async (req, res) => {
   const userId = req.user.id;
@@ -95,10 +88,6 @@ exports.startFromTask = async (req, res) => {
       );
       sessionId = result.insertId;
     }
-
-
-    
-    
 
     res.json({
       message: "Study session started from task",

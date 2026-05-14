@@ -22,6 +22,10 @@ async function buildTopicContent(topicId, userId = null) {
   // 3. Generate AI content
   const aiContent = await generateTopicContent(topic, materials);
 
+  if(!aiContent || aiContent.includes("Basic explanation")){
+    throw new Error("Failed to generate AI content");
+  }
+
   // 4. Save to DB
   await pool.execute(
     `INSERT INTO content (topic_id, type, text_content, source)
