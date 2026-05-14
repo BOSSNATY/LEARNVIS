@@ -167,7 +167,9 @@ const Dashboard = () => {
                         onClick={async () => {
                           try {
                             const session = await api.startSessionFromTask(task.id);
-                            navigate(`/student/learn/${task.topic_id}?taskId=${task.id}&session=${session.sessionId}`);
+                            // navigate(`/student/learn/${task.topic_id}?taskId=${task.id}&session=${session.sessionId}`);
+                            // In Dashboard.jsx (where you navigate to learn page):
+                            navigate(`/student/learn/${topicId}?taskId=${taskId}&session=${res.sessionId}&type=${taskType}`);
                           } catch (err) {
                             alert("Failed to start session");
                           }

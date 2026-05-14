@@ -39,8 +39,8 @@ const LearnPage = () => {
     : null;
 
     const handleCompleteTask = async () => {
-      try {
-        if (sessionId) await api.endSession({ session_id: sessionId, focus_score: 80 });
+      try {  
+        if (sessionId) await api.endSession({ sessioId: sessionId, focusScore: 80 });
         if (taskId) await api.completeTask(taskId, { understanding_score: 85 });
         navigate("/student/dashboard");
       } catch (err) {
@@ -223,6 +223,17 @@ const LearnPage = () => {
                   <div className="prose prose-invert max-w-none">
                     <div className="whitespace-pre-wrap text-gray-300 leading-relaxed">
                       <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{content.text}</ReactMarkdown>
+                    </div>    
+                  <div className="mt-12 p-8 bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-3xl text-center">
+                      <h3 className="text-xl font-bold mb-2">Ready to master this topic?</h3>
+                      <p className="text-gray-400 mb-6">Test your knowledge now to boost your Mastery Score and unlock the next level.</p>
+                      <button 
+                        onClick={() => navigate(`/student/quiz/${topicId}`)}
+                        className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 mx-auto"
+                      >
+                        Start Mastery Quiz
+                        <ChevronRight size={20} />
+                      </button>
                     </div>
                   </div>
                 ) : (
