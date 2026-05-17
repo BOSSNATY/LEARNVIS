@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import StudentLayout from "../../components/StudentLayout";
 import { api } from "../../services/api";
+import { UploadCloud } from "lucide-react";
+
 
 const StudyPlan = () => {
   const { topicId } = useParams(); // ✅ FIXED (was missing logically)
@@ -183,6 +185,22 @@ const StudyPlan = () => {
             />
           </div>
         )}
+
+        {/* CUSTOM MATERIALS UPLOAD */}
+        <div className="mb-6">
+           <label className="block mb-2 text-gray-400">Custom Course Material (Optional)</label>
+           <button 
+             onClick={(e) => {
+                e.preventDefault();
+                navigate(`/student/upload/${topicId}`);
+             }}
+             className="w-full py-4 border-2 border-dashed border-blue-500/50 hover:bg-blue-500/10 text-blue-400 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-inner"
+           >
+             <UploadCloud size={24} />
+             Upload Syllabus, Handouts, or Past Exams
+           </button>
+           <p className="text-xs text-gray-500 mt-2 text-center">The AI will use your materials to build a custom study plan.</p>
+        </div>
 
         {/* BUTTON */}
         <button

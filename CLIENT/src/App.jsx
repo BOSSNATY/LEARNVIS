@@ -135,7 +135,7 @@ function App() {
           />
           {/* OPTIONAL: CONTENT UPLOAD */}
           <Route
-            path="/student/learn/:topicId/upload"
+            path="/student/upload/:topicId"
             element={
               <ProtectedRoute>
                 <StudentContentUpload />

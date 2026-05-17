@@ -153,7 +153,7 @@ const Dashboard = () => {
             {/* TODAY'S AI STUDY TASKS */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Calendar size={20} className="text-blue-400" /> Today's Plan
+                <Calendar size={20} className="text-blue-400" /> Up Next (Your Plan)
               </h2>
               {dashboard?.todayTasks?.length > 0 ? (
                 <div className="space-y-3">
@@ -164,21 +164,24 @@ const Dashboard = () => {
                         <p className="text-sm text-gray-400 capitalize">
                           {new Date(task.scheduled_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} • {task.session_type} Session 
                         </p>
-                      </div> 
-                      <button disabled={task.status === 'completed'}
-                        onClick={async () => {
-                          try {
-                            const session = await api.startSessionFromTask(task.id);
-                            // Use the correct variables for the dashboard! 
-                            navigate(`/student/learn/${task.topic_id}?taskId=${task.id}&session=${session.sessionId}&type=${task.session_type}`);
-                          } catch (err) {
-                            console.error("Dashboard error:", err);
-                            alert("Failed to start session");
-                          }
-                        }}
-                        className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-medium transition-colors"
-                      >
-                        Start Learning
+                      </div>  
+                      <button 
+                          onClick={async () => {
+                            try {
+                              const session = await api.startSessionFromTask(task.id);
+                              navigate(`/student/learn/${task.topic_id}?taskId=${task.id}&session=${session.sessionId}&type=${task.session_type}`);
+                            } catch (err) {
+                              console.error("Dashboard error:", err);
+                              alert("Failed to start session");
+                            }
+                          }}
+                          className={`px-5 py-2.5 rounded-xl font-medium transition-colors ${
+                            task.status === 'completed' 
+                              ? 'bg-gray-600 hover:bg-gray-500 text-white' 
+                              : 'bg-blue-600 hover:bg-blue-500 text-white' 
+                          }`} 
+                        >
+                        {task.status === 'completed' ? 'Completed' : 'Start Learning'}
                       </button>
                     </div>
                   ))}
