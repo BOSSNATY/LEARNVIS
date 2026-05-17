@@ -193,7 +193,7 @@ exports.generateDailyTasks = async (req, res) => {
 
       const [taskRes] = await pool.execute(
         `INSERT INTO study_tasks (plan_id, topic_id, scheduled_date, session_type, status, progress_percent,subtopics)
-         VALUES (?, ?, ?, ?, 'pending', 0,subtopics)`,
+         VALUES (?, ?, ?, ?, 'pending', 0,?)`,
         [planId, topic.id, formattedDate, taskType,subtopicsString],
       );
 
