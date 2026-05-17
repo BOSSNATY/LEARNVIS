@@ -4,7 +4,7 @@ const { generateTopicContent } = require("./aiContentService");
 /**
  * Build full content for a topic
  */
-async function buildTopicContent(topicId, userId = null) {
+async function buildTopicContent(topicId, userId,taskId, subtopics) {
   // 1. Get topic
   const [topicRows] = await pool.execute(`SELECT * FROM topics WHERE id = ?`, [
     topicId,
@@ -20,7 +20,8 @@ async function buildTopicContent(topicId, userId = null) {
   );
 
   // 3. Generate AI content
-  const aiContent = await generateTopicContent(topic, materials);
+  const aiContent = await generateTopicContent(topic, materials, subtopics);
+
 
   if(!aiContent || aiContent.includes("Basic explanation")){
     throw new Error("Failed to generate AI content");
@@ -28,9 +29,9 @@ async function buildTopicContent(topicId, userId = null) {
 
   // 4. Save to DB
   await pool.execute(
-    `INSERT INTO content (topic_id, type, text_content, source)
-     VALUES (?, 'text', ?, 'ai')`,
-    [topicId, aiContent],
+    `INSERT INTO content (topic_id,task_id, type, text_content, source)
+     VALUES (?,?, 'text', ?, 'ai')`,
+    [topicId,taskId || null, aiContent],
   );
 
   return aiContent;

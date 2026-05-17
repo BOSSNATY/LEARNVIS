@@ -4,6 +4,7 @@ const { buildTopicContent } = require("../services/contentService");
 
 // POST /api/content/generate
 exports.generateContent = async (req, res) => {
+  
   const userId = req.user.id || req.user.userId;
   const { topicId } = req.body;
 
@@ -57,6 +58,7 @@ exports.getContent = async (req, res) => {
   const { topicId } = req.params;
   const userId = req.user?.id || req.user?.userId;
   const sessionId = req.query.sessionId;
+  const taskId = req.query.taskId;
 
 
   try {
@@ -71,8 +73,8 @@ exports.getContent = async (req, res) => {
       }
 
     const [[cached]] = await pool.execute(
-      "SELECT * FROM content WHERE topic_id = ? ORDER BY id DESC LIMIT 1",
-      [topicId],
+      "SELECT * FROM content WHERE topic_id = ? AND task_id = ? ORDER BY id DESC LIMIT 1",
+      [topicId,taskId || 0], 
     );
 
     const [materials] = await pool.execute(
@@ -83,14 +85,21 @@ exports.getContent = async (req, res) => {
     );
 
     if (cached)
-      return res.json({ topicId, content: cached, materials, cached: true });
-
-    const content = await buildTopicContent(topicId, userId || null);
+      return res.json({ topicId, content: cached, materials, cached: true, learningState });
+    
+    let taskSubtopics = null;
+    if (taskId) {
+      const [[task]] = await pool.execute("SELECT subtopics FROM study_tasks WHERE id = ?", [taskId]);
+        if (task && task.subtopics) taskSubtopics = task.subtopics;
+    } 
+     
+    const content = await buildTopicContent(topicId, userId ,taskId, taskSubtopics);
+    
     res.json({
       topicId,
       content: { text_content: content, source: "ai" },
       materials,
-      cached: false,
+      cached: false, 
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

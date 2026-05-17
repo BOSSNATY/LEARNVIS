@@ -8,7 +8,7 @@ const ai = new GoogleGenAI({
 /**
  * Generate structured learning content for a topic
  */
-async function generateTopicContent(topic, userMaterials = []) {
+async function generateTopicContent(topic, userMaterials = [],subtopics) {
   try {
     const materialText = userMaterials.length
       ? userMaterials.map((m) => m.file_url || m.type).join("\n")
@@ -24,6 +24,9 @@ async function generateTopicContent(topic, userMaterials = []) {
               text: `
             You are an expert teacher. Create structured learning content for the topic: ${topic.title}
 
+            CRITICAL FOCUS FOR TODAY'S LESSON: ${subtopics || 'General Overview'}
+            Only generate content that specifically teaches the focus areas above. Do not cover the entire topic.
+            
             User materials (optional reference): ${materialText}
 
             You MUST return your response as a valid JSON object with EXACTLY this structure (no markdown code blocks, just raw JSON):
