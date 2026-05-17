@@ -44,9 +44,16 @@ const LearnPage = () => {
 
     const handleCompleteTask = async () => {
       try {  
-        if (sessionId) await api.endSession({ sessioId: sessionId, focusScore: 80 });
-        if (taskId) await api.completeTask(taskId, { understanding_score: 85 });
-        navigate("/student/dashboard");
+        if (sessionId) await api.endSession({ sessionId: sessionId, focusScore: 80 });
+        if (taskId) {
+          const res = await api.completeTask(taskId, { understanding_score: 85 });
+          // Update the UI bars instantly!
+          if (res.progress) {
+             setStats(prev => ({ ...prev, progress: res.progress }));
+          }
+      }
+        
+        
       } catch (err) {
         alert("Failed to complete task");
       }
