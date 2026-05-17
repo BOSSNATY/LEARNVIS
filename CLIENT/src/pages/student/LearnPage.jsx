@@ -30,6 +30,7 @@ const LearnPage = () => {
   const [stats, setStats] = useState({ progress: 0, mastery: 0 });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isCompleting, setIsCompleting] = useState(false);
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const taskId = searchParams.get('taskId');
@@ -43,6 +44,8 @@ const LearnPage = () => {
     : null;
 
     const handleCompleteTask = async () => {
+      if (isCompleting) return;
+      setIsCompleting(true)
       try {  
         if (sessionId) await api.endSession({ sessionId: sessionId, focusScore: 80 });
         if (taskId) {
@@ -54,6 +57,7 @@ const LearnPage = () => {
       } 
       } catch (err) {
         alert("Failed to complete task");
+        setIsCompleting(false)
       }
     };
   
