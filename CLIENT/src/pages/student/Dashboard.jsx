@@ -161,13 +161,15 @@ const Dashboard = () => {
                     <div key={task.id} className="bg-[#1f2937] p-5 rounded-2xl flex items-center justify-between border border-white/5 hover:border-blue-500/30 transition-all">
                       <div>
                         <h3 className="font-semibold text-lg">{task.topic_title}</h3>
-                        <p className="text-sm text-gray-400 capitalize">{task.session_type} Session • {task.difficulty} Difficulty</p>
-                      </div>
-                      <button 
+                        <p className="text-sm text-gray-400 capitalize">
+                          {new Date(task.scheduled_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} • {task.session_type} Session 
+                        </p>
+                      </div> 
+                      <button disabled={task.status === 'completed'}
                         onClick={async () => {
                           try {
                             const session = await api.startSessionFromTask(task.id);
-                            // Use the correct variables for the dashboard!
+                            // Use the correct variables for the dashboard! 
                             navigate(`/student/learn/${task.topic_id}?taskId=${task.id}&session=${session.sessionId}&type=${task.session_type}`);
                           } catch (err) {
                             console.error("Dashboard error:", err);

@@ -153,7 +153,7 @@ export const api = {
   completeTask: (taskId, payload = {}) => request(`/study-tasks/${taskId}/complete`, { method: "POST", body: payload }),
 
   
-content: (topicId, sessionId) => request(`/content/${topicId}?sessionId=${sessionId}`),
+  content: (topicId, sessionId, taskId) => request(`/content/${topicId}?sessionId=${sessionId}&taskId=${taskId}`),
   generateContent: (payload) =>
     request("/content/generate", { method: "POST", body: payload }),
   uploadContent: async (formData) => {

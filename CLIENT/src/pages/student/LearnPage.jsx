@@ -47,13 +47,11 @@ const LearnPage = () => {
         if (sessionId) await api.endSession({ sessionId: sessionId, focusScore: 80 });
         if (taskId) {
           const res = await api.completeTask(taskId, { understanding_score: 85 });
-          // Update the UI bars instantly!
+          
           if (res.progress) {
              setStats(prev => ({ ...prev, progress: res.progress }));
           }
-      }
-        
-        
+      } 
       } catch (err) {
         alert("Failed to complete task");
       }
@@ -108,7 +106,7 @@ const LearnPage = () => {
     setLoading(true);
     setError(null);
     api
-      .content(topicId,sessionId)
+      .content(topicId,sessionId,taskId)
       .then((data) => {
         const contentPayload = data.content || data.primary || data;
         
