@@ -83,6 +83,10 @@ exports.getContent = async (req, res) => {
         : "SELECT * FROM user_materials WHERE topic_id = ? ORDER BY id DESC",
       userId ? [topicId, userId] : [topicId],
     );
+    const [[learningState]] = await pool.execute(
+      "SELECT status, progress_percent, mastery_score FROM learning_state WHERE user_id = ? AND topic_id = ?",
+      [userId, topicId]
+    );
 
     if (cached)
       return res.json({ topicId, content: cached, materials, cached: true, learningState });
@@ -94,10 +98,11 @@ exports.getContent = async (req, res) => {
     } 
      
     const content = await buildTopicContent(topicId, userId ,taskId, taskSubtopics);
-    
+
     res.json({
       topicId,
       content: { text_content: content, source: "ai" },
+      learningState,
       materials,
       cached: false, 
     });
