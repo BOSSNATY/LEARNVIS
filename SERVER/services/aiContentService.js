@@ -1,5 +1,6 @@
 const { GoogleGenAI } = require("@google/genai");
 const pool = require("../config/db");
+const fs = require("fs");
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -8,11 +9,16 @@ const ai = new GoogleGenAI({
 /**
  * Generate structured learning content for a topic
  */
-async function generateTopicContent(topic, userMaterials = [],subtopics) {
+async function generateTopicContent(topic, userMaterials = [], subtopics) {
   try {
-    const materialText = userMaterials.length
-      ? userMaterials.map((m) => m.file_url || m.type).join("\n")
-      : "No user materials provided";
+    let materialText = "";
+    for (const m of userMaterials) {
+      if (m.file_url && fs.existsSync(m.file_url)) {
+        materialText += `\n[Student ${m.type}]:\n${fs.readFileSync(m.file_url, "utf-8")}\n`;
+      } else if (m.file_url) {
+        materialText += `\n[Student ${m.type}]:\n${m.file_url}\n`; // Fallback
+      }
+    }
 
     const response = await ai.models.generateContent({
       model: "models/gemini-3.1-flash-lite",
@@ -24,7 +30,7 @@ async function generateTopicContent(topic, userMaterials = [],subtopics) {
               text: `
             You are an expert teacher. Create structured learning content for the topic: ${topic.title}
 
-            CRITICAL FOCUS FOR TODAY'S LESSON: ${subtopics || 'General Overview'}
+            CRITICAL FOCUS FOR TODAY'S LESSON: ${subtopics || "General Overview"}
             Only generate content that specifically teaches the focus areas above. Do not cover the entire topic.
             
             User materials (optional reference): ${materialText}

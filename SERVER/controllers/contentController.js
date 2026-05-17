@@ -3,10 +3,8 @@ const pool = require("../config/db");
 const { buildTopicContent } = require("../services/contentService");
 const fs = require("fs");
 
-
 // POST /api/content/generate
 exports.generateContent = async (req, res) => {
-  
   const userId = req.user.id || req.user.userId;
   const { topicId } = req.body;
 
@@ -23,27 +21,20 @@ exports.generateContent = async (req, res) => {
 // POST /api/content/upload
 exports.uploadContent = async (req, res) => {
   const userId = req.user?.id || req.user?.userId;
-  const { topicId,  type  } = req.body;
+  const { topicId, type } = req.body;
 
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
     const filePath = req.file.path;
-    let textContent = null;
-
-    if (req.file.mimetype === "text/plain") {
-      textContent = fs.readFileSync(filePath, "utf8");
-    } else {
-      textContent = `[Attached Material: ${req.file.originalname}]`
-    }
 
     await pool.execute(
       `INSERT INTO user_materials (user_id, topic_id, file_url, type)
       VALUES (?, ?, ?,?)`,
-      [userId, topicId, textContent,type || "note"]
-    )
-    res.json({ message: "Material uploaded successfully",file_url: filePath });
-  }catch (err) {
+      [userId, topicId, filePath, type || "note"],
+    );
+    res.json({ message: "Material uploaded successfully", file_url: filePath });
+  } catch (err) {
     console.error("Upload error:", err);
     res.status(500).json({ error: err.message });
   }
@@ -56,21 +47,21 @@ exports.getContent = async (req, res) => {
   const sessionId = req.query.sessionId;
   const taskId = req.query.taskId;
 
-
   try {
-    
-      const [[validSession]] = await pool.execute(
-        `SELECT id FROM study_sessions 
+    const [[validSession]] = await pool.execute(
+      `SELECT id FROM study_sessions 
          WHERE id = ? AND user_id = ? AND topic_id = ? AND status = 'active'`,
-        [sessionId, userId, topicId]
-      );
-      if (!validSession) {
-        return res.status(403).json({ error: "Access Denied: No active session found for this topic." });
-      }
+      [sessionId, userId, topicId],
+    );
+    if (!validSession) {
+      return res.status(403).json({
+        error: "Access Denied: No active session found for this topic.",
+      });
+    }
 
     const [[cached]] = await pool.execute(
       "SELECT * FROM content WHERE topic_id = ? AND task_id = ? ORDER BY id DESC LIMIT 1",
-      [topicId,taskId || 0], 
+      [topicId, taskId || 0],
     );
 
     const [materials] = await pool.execute(
@@ -81,26 +72,40 @@ exports.getContent = async (req, res) => {
     );
     const [[learningState]] = await pool.execute(
       "SELECT status, progress_percent, mastery_score FROM learning_state WHERE user_id = ? AND topic_id = ?",
-      [userId, topicId]
+      [userId, topicId],
     );
 
     if (cached)
-      return res.json({ topicId, content: cached, materials, cached: true, learningState });
-    
+      return res.json({
+        topicId,
+        content: cached,
+        materials,
+        cached: true,
+        learningState,
+      });
+
     let taskSubtopics = null;
     if (taskId) {
-      const [[task]] = await pool.execute("SELECT subtopics FROM study_tasks WHERE id = ?", [taskId]);
-        if (task && task.subtopics) taskSubtopics = task.subtopics;
-    } 
-     
-    const content = await buildTopicContent(topicId, userId ,taskId, taskSubtopics);
+      const [[task]] = await pool.execute(
+        "SELECT subtopics FROM study_tasks WHERE id = ?",
+        [taskId],
+      );
+      if (task && task.subtopics) taskSubtopics = task.subtopics;
+    }
+
+    const content = await buildTopicContent(
+      topicId,
+      userId,
+      taskId,
+      taskSubtopics,
+    );
 
     res.json({
       topicId,
       content: { text_content: content, source: "ai" },
       learningState,
       materials,
-      cached: false, 
+      cached: false,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

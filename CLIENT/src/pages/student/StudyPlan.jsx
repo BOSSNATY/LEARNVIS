@@ -4,7 +4,6 @@ import StudentLayout from "../../components/StudentLayout";
 import { api } from "../../services/api";
 import { UploadCloud } from "lucide-react";
 
-
 const StudyPlan = () => {
   const { topicId } = useParams(); // ✅ FIXED (was missing logically)
   const navigate = useNavigate();
@@ -12,15 +11,54 @@ const StudyPlan = () => {
   const [topic, setTopic] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploads, setUploads] = useState({
+    note: { file: null, status: "idle" },
+    exam: { file: null, status: "idle" },
+  });
+  const [dragActive, setDragActive] = useState({ note: false, exam: false });
+
+  const handleFileUpload = async (file, type) => {
+    if (!file) return;
+    setUploads((prev) => ({ ...prev, [type]: { file, status: "uploading" } }));
+
+    const data = new FormData();
+    data.append("topicId", topicId);
+    data.append("type", type);
+    data.append("file", file);
+    try {
+      await api.uploadContent(data);
+      setUploads((prev) => ({ ...prev, [type]: { file, status: "success" } }));
+    } catch (err) {
+      console.error(err);
+      setUploads((prev) => ({ ...prev, [type]: { file, status: "error" } }));
+    }
+  };
+  // Drag and Drop Handlers
+  const handleDrag = (e, type) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover")
+      setDragActive((prev) => ({ ...prev, [type]: true }));
+    else if (e.type === "dragleave")
+      setDragActive((prev) => ({ ...prev, [type]: false }));
+  };
+  const handleDrop = (e, type) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive((prev) => ({ ...prev, [type]: false }));
+    if (e.dataTransfer.files?.[0])
+      handleFileUpload(e.dataTransfer.files[0], type);
+  };
 
   const [form, setForm] = useState({
     studyType: "daily",
-    daily_time_minutes: 30, 
-    startTime: "16:00",     
-    endTime: "19:00",       
+    daily_time_minutes: 30,
+    startTime: "16:00",
+    endTime: "19:00",
     examDate: "",
+    file: null,
+    uploadStatus: "idle",
   });
-
 
   // ✅ FETCH TOPIC
   useEffect(() => {
@@ -87,7 +125,7 @@ const StudyPlan = () => {
   const calculateMinutes = (start, end) => {
     const [startH, startM] = start.split(":").map(Number);
     const [endH, endM] = end.split(":").map(Number);
-    let diff = (endH * 60 + endM) - (startH * 60 + startM);
+    let diff = endH * 60 + endM - (startH * 60 + startM);
     if (diff < 0) diff += 24 * 60; // Handle overnight study
     return diff;
   };
@@ -95,20 +133,20 @@ const StudyPlan = () => {
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
-      
+
       const planRes = await api.createStudyPlan({
         subjectId: topic.subject_id || topic.subjectId,
         topicId,
         // The AI now receives their total available time window!
-        daily_time_minutes: calculateMinutes(form.startTime, form.endTime), 
+        daily_time_minutes: calculateMinutes(form.startTime, form.endTime),
         // We still save the exact string (e.g. "16:00-19:00") so we can send calendar reminders later!
-        preferred_time: `${form.startTime}-${form.endTime}`, 
+        preferred_time: `${form.startTime}-${form.endTime}`,
         examDate: form.studyType === "exam" ? form.examDate : null,
       });
 
       // Trigger AI Planner
       await api.generatePlanTasks(planRes.planId, {
-        topicIds: [topicId]
+        topicIds: [topicId],
       });
 
       navigate(`/student/dashboard`);
@@ -119,7 +157,6 @@ const StudyPlan = () => {
       setSubmitting(false);
     }
   };
-
 
   return (
     <StudentLayout>
@@ -145,33 +182,28 @@ const StudyPlan = () => {
 
         {/* ACTUAL STUDY TIME WINDOW */}
         <div>
-          <label className="block mb-2 text-gray-400">
-            Study Time Window
-          </label>
+          <label className="block mb-2 text-gray-400">Study Time Window</label>
           <div className="flex items-center gap-4">
             <input
               type="time"
               value={form.startTime}
-              onChange={(e) =>
-                setForm({ ...form, startTime: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, startTime: e.target.value })}
               className="flex-1 bg-[#1f2937] p-3 rounded-xl border border-white/10 focus:border-blue-500 outline-none"
             />
             <span className="text-gray-400 font-medium">to</span>
             <input
               type="time"
               value={form.endTime}
-              onChange={(e) =>
-                setForm({ ...form, endTime: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, endTime: e.target.value })}
               className="flex-1 bg-[#1f2937] p-3 rounded-xl border border-white/10 focus:border-blue-500 outline-none"
             />
           </div>
           <p className="text-sm text-blue-400 mt-2">
-            Total daily study time: {Math.floor(calculateMinutes(form.startTime, form.endTime) / 60)}h {calculateMinutes(form.startTime, form.endTime) % 60}m
+            Total daily study time:{" "}
+            {Math.floor(calculateMinutes(form.startTime, form.endTime) / 60)}h{" "}
+            {calculateMinutes(form.startTime, form.endTime) % 60}m
           </p>
         </div>
-
 
         {/* EXAM DATE */}
         {form.studyType === "exam" && (
@@ -187,19 +219,71 @@ const StudyPlan = () => {
         )}
 
         {/* CUSTOM MATERIALS UPLOAD */}
-        <div className="mb-6">
-           <label className="block mb-2 text-gray-400">Custom Course Material (Optional)</label>
-           <button 
-             onClick={(e) => {
-                e.preventDefault();
-                navigate(`/student/upload/${topicId}`);
-             }}
-             className="w-full py-4 border-2 border-dashed border-blue-500/50 hover:bg-blue-500/10 text-blue-400 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-inner"
-           >
-             <UploadCloud size={24} />
-             Upload Syllabus, Handouts, or Past Exams
-           </button>
-           <p className="text-xs text-gray-500 mt-2 text-center">The AI will use your materials to build a custom study plan.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {/* NOTE UPLOADER */}
+          <div>
+            <label className="block mb-2 text-gray-400">
+              Class Notes / Syllabus
+            </label>
+            <label
+              onDragEnter={(e) => handleDrag(e, "note")}
+              onDragLeave={(e) => handleDrag(e, "note")}
+              onDragOver={(e) => handleDrag(e, "note")}
+              onDrop={(e) => handleDrop(e, "note")}
+              className={`w-full py-6 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 transition-all cursor-pointer
+                ${dragActive.note ? "border-blue-400 bg-blue-500/20" : uploads.note.status === "success" ? "border-green-500/50 bg-green-500/10 text-green-400" : uploads.note.status === "uploading" ? "border-yellow-500/50 bg-yellow-500/10 text-yellow-400" : "border-blue-500/50 hover:bg-blue-500/10 text-blue-400"}`}
+            >
+              <UploadCloud size={24} />
+              <span className="font-semibold text-center text-sm px-2">
+                {uploads.note.status === "uploading"
+                  ? "Uploading..."
+                  : uploads.note.status === "success"
+                    ? `Loaded: ${uploads.note.file?.name}`
+                    : dragActive.note
+                      ? "Drop note here!"
+                      : "Drag Note or Click"}
+              </span>
+              <input
+                type="file"
+                className="hidden"
+                accept=".txt"
+                onChange={(e) => handleFileUpload(e.target.files?.[0], "note")}
+              />
+            </label>
+          </div>
+
+          {/* EXAM UPLOADER */}
+          <div>
+            <label className="block mb-2 text-gray-400">
+              Past Exams / Quizzes
+            </label>
+            <label
+              onDragEnter={(e) => handleDrag(e, "exam")}
+              onDragLeave={(e) => handleDrag(e, "exam")}
+              onDragOver={(e) => handleDrag(e, "exam")}
+              onDrop={(e) => handleDrop(e, "exam")}
+              className={`w-full py-6 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 transition-all cursor-pointer
+                ${dragActive.exam ? "border-purple-400 bg-purple-500/20" : uploads.exam.status === "success" ? "border-green-500/50 bg-green-500/10 text-green-400" : uploads.exam.status === "uploading" ? "border-yellow-500/50 bg-yellow-500/10 text-yellow-400" : "border-purple-500/50 hover:bg-purple-500/10 text-purple-400"}`}
+            >
+              <UploadCloud size={24} />
+              <span className="font-semibold text-center text-sm px-2">
+                {uploads.exam.status === "uploading"
+                  ? "Uploading..."
+                  : uploads.exam.status === "success"
+                    ? `Loaded: ${uploads.exam.file?.name}`
+                    : dragActive.exam
+                      ? "Drop exam here!"
+                      : "Drag Exam or Click"}
+              </span>
+              <input
+                type="file"
+                className="hidden"
+                accept=".txt"
+                onChange={(e) => handleFileUpload(e.target.files?.[0], "exam")}
+              />
+            </label>
+          </div>
         </div>
 
         {/* BUTTON */}
