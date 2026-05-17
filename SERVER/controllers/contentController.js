@@ -1,6 +1,8 @@
 const path = require("path");
 const pool = require("../config/db");
 const { buildTopicContent } = require("../services/contentService");
+const fs = require("fs");
+
 
 // POST /api/content/generate
 exports.generateContent = async (req, res) => {
@@ -20,35 +22,29 @@ exports.generateContent = async (req, res) => {
 
 // POST /api/content/upload
 exports.uploadContent = async (req, res) => {
-  const userId = req.user.id || req.user.userId;
-  const { topicId, type = "upload" } = req.body;
-
-  if (!topicId) return res.status(400).json({ error: "topicId is required" });
-  if (!req.file) return res.status(400).json({ error: "file is required" });
-
-  const fileUrl = `/uploads/${req.file.filename}`;
+  const userId = req.user?.id || req.user?.userId;
+  const { topicId,  type  } = req.body;
 
   try {
-    const [result] = await pool.execute(
-      `INSERT INTO user_materials (user_id, topic_id, type, file_url)
-       VALUES (?, ?, ?, ?)`,
-      [
-        userId,
-        topicId,
-        type ||
-          path.extname(req.file.originalname).replace(".", "") ||
-          "upload",
-        fileUrl,
-      ],
-    );
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-    res.status(201).json({
-      message: "Content uploaded",
-      materialId: result.insertId,
-      fileUrl,
-      originalName: req.file.originalname,
-    });
-  } catch (err) {
+    const filePath = req.file.path;
+    let textContent = null;
+
+    if (req.file.mimetype === "text/plain") {
+      textContent = fs.readFileSync(filePath, "utf8");
+    } else {
+      textContent = `[Attached Material: ${req.file.originalname}]`
+    }
+
+    await pool.execute(
+      `INSERT INTO user_materials (user_id, topic_id, file_url, type)
+      VALUES (?, ?, ?,?)`,
+      [userId, topicId, textContent,type || "note"]
+    )
+    res.json({ message: "Material uploaded successfully",file_url: filePath });
+  }catch (err) {
+    console.error("Upload error:", err);
     res.status(500).json({ error: err.message });
   }
 };

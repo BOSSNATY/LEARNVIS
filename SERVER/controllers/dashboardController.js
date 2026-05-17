@@ -49,12 +49,13 @@ exports.getDashboard = async (req, res) => {
       SELECT 
           'learn' as type,
           NULL as score,
-          CONCAT('Topic ', topic_id) as title,
-          start_time as date
-      FROM study_sessions
-      WHERE user_id = ? AND end_time IS NOT NULL
-
-      ORDER BY date DESC
+          t.title as title,
+          MAX(ss.start_time) as date
+      FROM study_sessions ss
+      JOIN topics t ON ss.topic_id = t.id
+      WHERE ss.user_id = ? AND ss.end_time IS NOT NULL
+      GROUP BY t.id, t.title
+      
       LIMIT 5
       `,
       [userId, userId],
