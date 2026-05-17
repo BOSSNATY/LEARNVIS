@@ -183,15 +183,19 @@ exports.generateDailyTasks = async (req, res) => {
       scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
       const formattedDate = scheduledDate.toISOString().split("T")[0];
 
-      const taskType = dayPlan.type || dayPlan.sessionType || dayPlan.taskType || "learn";
+      const rawType = dayPlan.type || dayPlan.sessionType || dayPlan.taskType;
+      const taskType = (rawType && typeof rawType === "String") ?
+      rawType.toLowerCase().trim() : "learn";
+
+      const subtopicsString = Array.isArray(dayPlan.subtopics) 
+        ? dayPlan.subtopics.join(", ") 
+        : (dayPlan.subtopics || "General Review");
 
       const [taskRes] = await pool.execute(
-        `INSERT INTO study_tasks (plan_id, topic_id, scheduled_date, session_type, status, progress_percent)
-         VALUES (?, ?, ?, ?, 'pending', 0)`,
-        [planId, topic.id, formattedDate, taskType],
+        `INSERT INTO study_tasks (plan_id, topic_id, scheduled_date, session_type, status, progress_percent,subtopics)
+         VALUES (?, ?, ?, ?, 'pending', 0,subtopics)`,
+        [planId, topic.id, formattedDate, taskType,subtopicsString],
       );
-
-
 
       savedTasks.push({
         taskId: taskRes.insertId,
