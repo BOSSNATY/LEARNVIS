@@ -33,7 +33,7 @@ exports.endSession = async (req, res) => {
 
   // 2. Update Session
   await pool.execute(
-    "UPDATE study_sessions SET end_time = NOW(), focus_score = ?, status = 'completed' WHERE id = ?",
+    "UPDATE study_sessions SET end_time = NOW(), focus_score = ?, status = 'completed', progress = 100 WHERE id = ?",
     [focusScore || 80, sessionId]
   );
 
