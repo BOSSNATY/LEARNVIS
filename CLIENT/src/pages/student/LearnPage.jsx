@@ -28,6 +28,8 @@ const LearnPage = () => {
   const { getTopicById, getSubjectById } = useApp();
   const [activeTab, setActiveTab] = useState("content");
   const [stats, setStats] = useState({ progress: 0, mastery: 0 });
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const taskId = searchParams.get('taskId');
@@ -95,8 +97,9 @@ const LearnPage = () => {
         };
   const [content, setContent] = useState(fallbackContent);
 
-  useEffect(() => {
-    if (!taskId || !sessionId) return; 
+  const fetchContent = () => {
+    setLoading(true);
+    setError(null);
     api
       .content(topicId,sessionId)
       .then((data) => {
@@ -120,12 +123,35 @@ const LearnPage = () => {
           progress: data.learningState?.progress_percent || 0,
           mastery: data.learningState?.mastery_score || 0,
         });
+        setLoading(false)
+
       })
       .catch((err) => {
-        console.error("Security Check Failed:", err);
-        setContent(null);
+        console.error(err);
+        setError("We couldn't generate your lesson. Please try again.");
+      setLoading(false);
       });
+
+  };
+
+  
+  useEffect(() => {
+    fetchContent()
   }, [topicId]);
+
+  if (error) {
+    return (
+      <StudentLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+          <h2 className="text-2xl font-bold mb-4">Content Generation Failed</h2>
+          <p className="text-gray-400 mb-6">{error}</p>
+          <button onClick={fetchContent} className="px-6 py-3 bg-blue-600 rounded-xl font-bold">
+            Retry Generation
+          </button>
+        </div>
+      </StudentLayout>
+    );
+  }
 
   // If they try to bypass the dashboard, lock them out!
   if (!taskId || !sessionId || content === null) {
