@@ -28,21 +28,30 @@ async function generateTopicContent(topic, userMaterials = [], subtopics) {
           parts: [
             {
               text: `
-            You are an expert teacher. Create structured learning content for the topic: ${topic.title}
+            You are a master-level university professor writing a comprehensive, deep-dive textbook chapter for the topic: ${topic.title}
 
             CRITICAL FOCUS FOR TODAY'S LESSON: ${subtopics || "General Overview"}
-            Only generate content that specifically teaches the focus areas above. Do not cover the entire topic.
             
-            User materials (optional reference): ${materialText}
+            Instructions for generating the content:
+            1. DO NOT write a superficial or short overview. You must write an extensive, highly detailed explanation.
+            2. Break down complex ideas using first-principles thinking.
+            3. Include rich analogies, real-world applications, and historical context if applicable.
+            4. Provide step-by-step examples or mathematical breakdowns where relevant.
+            5. Anticipate common student misconceptions and address them explicitly.
+            6. Format the text beautifully using Markdown headers, bullet points, and bold text for emphasis.
+            
+            User syllabus/materials (incorporate this context deeply if provided): ${materialText}
 
             You MUST return your response as a valid JSON object with EXACTLY this structure (no markdown code blocks, just raw JSON):
             {
-              "text": "The full lesson explanation in Markdown format (include clear explanation, examples, and common mistakes)",
+              "text": "The full, exhaustive lesson explanation in Markdown format (must be long and highly detailed).",
               "keyPoints": [
-                "First key concept summary",
-                "Second key concept summary",
-                "Third key concept summary"
-              ]}
+                "Detailed summary point 1",
+                "Detailed summary point 2",
+                "Detailed summary point 3",
+                "Detailed summary point 4"
+              ]
+            }
                 `,
             },
           ],
