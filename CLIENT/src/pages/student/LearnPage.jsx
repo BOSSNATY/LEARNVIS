@@ -3,9 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
 import StudentLayout from "../../components/StudentLayout";
 import ReactMarkdown from "react-markdown";
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import 'katex/dist/katex.min.css';
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import {
   ArrowLeft,
   Play,
@@ -19,8 +19,7 @@ import {
   Bookmark,
 } from "lucide-react";
 import { api } from "../../services/api";
-import { useLocation } from "react-router-dom"; 
-
+import { useLocation } from "react-router-dom";
 
 const LearnPage = () => {
   const navigate = useNavigate();
@@ -33,34 +32,34 @@ const LearnPage = () => {
   const [isCompleting, setIsCompleting] = useState(false);
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
-  const taskId = searchParams.get('taskId');
-  const sessionId = searchParams.get('session');
-  const taskType = searchParams.get('type');
-
+  const taskId = searchParams.get("taskId");
+  const sessionId = searchParams.get("session");
+  const taskType = searchParams.get("type");
 
   const topic = getTopicById(topicId);
   const subject = topic
     ? getSubjectById(topic.subject_id || topic.subjectId || 1)
     : null;
 
-    const handleCompleteTask = async () => {
-      if (isCompleting) return;
-      setIsCompleting(true)
-      try {  
-        if (sessionId) await api.endSession({ sessionId: sessionId, focusScore: 80 });
-        if (taskId) {
-          const res = await api.completeTask(taskId, { understanding_score: 85 });
-          
-          if (res.progress) {
-             setStats(prev => ({ ...prev, progress: res.progress }));
-          }
-      } 
-      } catch (err) {
-        alert("Failed to complete task");
-        setIsCompleting(false)
+  const handleCompleteTask = async () => {
+    if (isCompleting) return;
+    setIsCompleting(true);
+    try {
+      if (sessionId)
+        await api.endSession({ sessionId: sessionId, focusScore: 80 });
+      if (taskId) {
+        const res = await api.completeTask(taskId, { understanding_score: 85 });
+
+        if (res.progress) {
+          setStats((prev) => ({ ...prev, progress: res.progress }));
+        }
       }
-    };
-  
+    } catch (err) {
+      alert("Failed to complete task");
+      setIsCompleting(false);
+    }
+  };
+
   const fallbackContent = {
     video: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Placeholder
     text: `
@@ -97,34 +96,42 @@ const LearnPage = () => {
       ## Summary
       Kinematics provides the mathematical tools to describe motion. By understanding position, displacement, velocity, and acceleration, we can analyze and predict how objects move in the physical world.
           `,
-          keyPoints: [
-            "Position is the location relative to a reference point",
-            "Displacement is a vector quantity with magnitude and direction",
-            "Velocity is displacement divided by time",
-            "Acceleration is the rate of change of velocity",
-          ],
-        };
+    keyPoints: [
+      "Position is the location relative to a reference point",
+      "Displacement is a vector quantity with magnitude and direction",
+      "Velocity is displacement divided by time",
+      "Acceleration is the rate of change of velocity",
+    ],
+  };
   const [content, setContent] = useState(fallbackContent);
 
   const fetchContent = () => {
     setLoading(true);
     setError(null);
     api
-      .content(topicId,sessionId,taskId)
+      .content(topicId, sessionId, taskId)
       .then((data) => {
         const contentPayload = data.content || data.primary || data;
-        
-        let parsedAiData = { text: fallbackContent.text, keyPoints: fallbackContent.keyPoints };
+
+        let parsedAiData = {
+          text: fallbackContent.text,
+          keyPoints: fallbackContent.keyPoints,
+        };
         try {
           // Strip any weird markdown JSON wrappers Gemini might add
-          let rawText = contentPayload.text_content.replace(/```json\n?|\n?```/g, '').trim();
+          let rawText = contentPayload.text_content
+            .replace(/```json\n?|\n?```/g, "")
+            .trim();
           parsedAiData = JSON.parse(rawText);
         } catch (e) {
           parsedAiData.text = contentPayload.text_content; // Fallback
         }
 
         setContent({
-          video: contentPayload.type === "video" ? contentPayload.video_url : fallbackContent.video,
+          video:
+            contentPayload.type === "video"
+              ? contentPayload.video_url
+              : fallbackContent.video,
           text: parsedAiData.text || fallbackContent.text,
           keyPoints: parsedAiData.keyPoints || fallbackContent.keyPoints,
         });
@@ -132,20 +139,17 @@ const LearnPage = () => {
           progress: data.learningState?.progress_percent || 0,
           mastery: data.learningState?.mastery_score || 0,
         });
-        setLoading(false)
-
+        setLoading(false);
       })
       .catch((err) => {
         console.error(err);
         setError("We couldn't generate your lesson. Please try again.");
-      setLoading(false);
+        setLoading(false);
       });
-
   };
 
-  
   useEffect(() => {
-    fetchContent()
+    fetchContent();
   }, [topicId]);
 
   if (error) {
@@ -154,7 +158,10 @@ const LearnPage = () => {
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
           <h2 className="text-2xl font-bold mb-4">Content Generation Failed</h2>
           <p className="text-gray-400 mb-6">{error}</p>
-          <button onClick={fetchContent} className="px-6 py-3 bg-blue-600 rounded-xl font-bold">
+          <button
+            onClick={fetchContent}
+            className="px-6 py-3 bg-blue-600 rounded-xl font-bold"
+          >
             Retry Generation
           </button>
         </div>
@@ -172,7 +179,8 @@ const LearnPage = () => {
           </div>
           <h2 className="text-2xl font-bold mb-2">Active Session Required</h2>
           <p className="text-gray-400 mb-6 max-w-md">
-            To properly track your mastery and focus score, you must start this lesson from an active Study Task on your Dashboard.
+            To properly track your mastery and focus score, you must start this
+            lesson from an active Study Task on your Dashboard.
           </p>
           <button
             onClick={() => navigate("/student/dashboard")}
@@ -199,7 +207,6 @@ const LearnPage = () => {
       </StudentLayout>
     );
   }
-  
 
   return (
     <StudentLayout>
@@ -259,19 +266,31 @@ const LearnPage = () => {
                 {activeTab === "content" ? (
                   <div className="prose prose-invert max-w-none">
                     <div className="whitespace-pre-wrap text-gray-300 leading-relaxed">
-                      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{content.text}</ReactMarkdown>
-                    </div>    
-                    {taskType === 'quiz' && (<div className="mt-12 p-8 bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-3xl text-center">
-                      <h3 className="text-xl font-bold mb-2">Ready to master this topic?</h3>
-                      <p className="text-gray-400 mb-6">Test your knowledge now to boost your Mastery Score and unlock the next level.</p>
-                      <button 
-                        onClick={() => navigate(`/student/quiz/${topicId}`)}
-                        className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 mx-auto"
+                      <ReactMarkdown
+                        remarkPlugins={[remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
                       >
-                        Start Mastery Quiz
-                        <ChevronRight size={20} />
-                      </button>
-                    </div>)}
+                        {content.text}
+                      </ReactMarkdown>
+                    </div>
+                    {taskType === "quiz" && (
+                      <div className="mt-12 p-8 bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-3xl text-center">
+                        <h3 className="text-xl font-bold mb-2">
+                          Ready to master this topic?
+                        </h3>
+                        <p className="text-gray-400 mb-6">
+                          Test your knowledge now to boost your Mastery Score
+                          and unlock the next level.
+                        </p>
+                        <button
+                          onClick={() => navigate(`/student/quiz/${topicId}`)}
+                          className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 mx-auto"
+                        >
+                          Start Mastery Quiz
+                          <ChevronRight size={20} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-8">
@@ -302,7 +321,7 @@ const LearnPage = () => {
                 <span>Share</span>
               </button>
               {(taskId || sessionId) && (
-                <button 
+                <button
                   onClick={handleCompleteTask}
                   className="ml-auto px-6 py-2 bg-green-600 hover:bg-green-500 rounded-xl font-bold transition-all"
                 >
@@ -371,23 +390,28 @@ const LearnPage = () => {
             </div>
 
             {/* Progress */}
-            
-        <div className="flex justify-between text-sm mb-2">
-          <span className="text-gray-400">Topic Mastery</span>
-          <span className="text-white">{stats.mastery}%</span>
-        </div>
-        <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-4">
-          <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${stats.mastery}%` }}></div>
-        </div>
 
-        <div className="flex justify-between text-sm mb-2">
-          <span className="text-gray-400">Total Progress</span>
-          <span className="text-white">{stats.progress}%</span>
-        </div>
-        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-          <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${stats.progress}%` }}></div>
-        </div>
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-gray-400">Topic Mastery</span>
+              <span className="text-white">{stats.mastery}%</span>
+            </div>
+            <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-4">
+              <div
+                className="h-full bg-blue-500 transition-all duration-500"
+                style={{ width: `${stats.mastery}%` }}
+              ></div>
+            </div>
 
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-gray-400">Total Progress</span>
+              <span className="text-white">{stats.progress}%</span>
+            </div>
+            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-green-500 transition-all duration-500"
+                style={{ width: `${stats.progress}%` }}
+              ></div>
+            </div>
           </div>
         </div>
       </div>
