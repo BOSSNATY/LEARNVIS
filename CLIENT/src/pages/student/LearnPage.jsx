@@ -35,7 +35,7 @@ const LearnPage = () => {
   const taskId = searchParams.get("taskId");
   const sessionId = searchParams.get("session");
   const taskType = searchParams.get("type");
-
+  const isReview = searchParams.get("isReview") === "true";
   const topic = getTopicById(topicId);
   const subject = topic
     ? getSubjectById(topic.subject_id || topic.subjectId || 1)
@@ -320,12 +320,15 @@ const LearnPage = () => {
                 <Share2 size={18} />
                 <span>Share</span>
               </button>
-              {(taskId || sessionId) && (
+              {(taskId || sessionId) && !isReview && (
                 <button
                   onClick={handleCompleteTask}
-                  className="ml-auto px-6 py-2 bg-green-600 hover:bg-green-500 rounded-xl font-bold transition-all"
+                  disabled={isCompleting}
+                  className="ml-auto px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20
+                  "
                 >
-                  Mark as Complete
+                  {isCompleting ? "Loading Quiz..." : "Complete & Take Quiz"}
+                  <ChevronRight size={18} />
                 </button>
               )}
             </div>
