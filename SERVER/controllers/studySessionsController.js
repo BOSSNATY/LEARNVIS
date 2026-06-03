@@ -10,10 +10,8 @@ exports.startSession = async (req, res) => {
       `INSERT INTO study_sessions
       (user_id, topic_id, start_time, session_type)
       VALUES (?, ?, NOW(), ?)`,
-      [userId, task.topic_id, task.session_type || "learn"]
+      [userId, task.topic_id, task.session_type || "learn"],
     );
-
-
 
     res.json({
       message: "Session started",
@@ -28,26 +26,39 @@ exports.endSession = async (req, res) => {
   const { sessionId, taskId, focusScore } = req.body;
 
   // 1. Calculate time spent automatically
-  const [[session]] = await pool.execute("SELECT start_time FROM study_sessions WHERE id = ?", [sessionId]);
-  const timeSpentMinutes = Math.round((new Date() - new Date(session.start_time)) / 60000);
+  const [[session]] = await pool.execute(
+    "SELECT start_time FROM study_sessions WHERE id = ?",
+    [sessionId],
+  );
+
+  // Calculate raw time, but CAP it at 120 minutes (2 hours) so users who fall asleep
+  // don't ruin their analytics with 14-hour study sessions!
+  let timeSpentMinutes = Math.round(
+    (new Date() - new Date(session.start_time)) / 60000,
+  );
+  if (timeSpentMinutes > 120) {
+    timeSpentMinutes = 120; // Cap at 2 hours
+  }
 
   // 2. Update Session
   await pool.execute(
     "UPDATE study_sessions SET end_time = NOW(), focus_score = ?, status = 'completed', progress = 100 WHERE id = ?",
-    [focusScore || 80, sessionId]
+    [focusScore || 80, sessionId],
   );
 
   // 3. Update Task in ONE go
   if (taskId) {
     await pool.execute(
       "UPDATE study_tasks SET status = 'completed', time_spent = ?, progress_percent = 100 WHERE id = ?",
-      [timeSpentMinutes, taskId]
+      [timeSpentMinutes, taskId],
     );
   }
 
-  res.json({ message: "Session tracked successfully!", timeSpent: timeSpentMinutes });
+  res.json({
+    message: "Session tracked successfully!",
+    timeSpent: timeSpentMinutes,
+  });
 };
-
 
 exports.startFromTask = async (req, res) => {
   const userId = req.user.id;
@@ -73,7 +84,7 @@ exports.startFromTask = async (req, res) => {
     const [existingSession] = await pool.execute(
       `SELECT id FROM study_sessions 
        WHERE user_id = ? AND topic_id = ? AND status = 'active'`,
-      [userId, task.topic_id]
+      [userId, task.topic_id],
     );
 
     let sessionId;
@@ -84,7 +95,7 @@ exports.startFromTask = async (req, res) => {
         `INSERT INTO study_sessions
         (user_id, topic_id, start_time, session_type, status, progress)
         VALUES (?, ?, NOW(), ?, 'active', 0)`,
-        [userId, task.topic_id, task.session_type || "learn"]
+        [userId, task.topic_id, task.session_type || "learn"],
       );
       sessionId = result.insertId;
     }
