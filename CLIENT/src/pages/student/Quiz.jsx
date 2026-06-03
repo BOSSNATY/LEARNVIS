@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
 import StudentLayout from "../../components/StudentLayout";
 import {
@@ -29,11 +29,15 @@ const Quiz = () => {
   const [serverResult, setServerResult] = useState(null);
 
   const topic = getTopicById(topicId);
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const taskId = searchParams.get("taskId");
+  const quizType = searchParams.get("type") || "practice";
 
   useEffect(() => {
     if (!topicId) return;
     api
-      .generateQuiz({ topicId, mode: "practice" })
+      .generateQuiz({ topicId, mode: quizType })
       .then(async (generated) => {
         const quizId = generated.quizId || generated.id;
         setServerQuizId(quizId);
@@ -99,6 +103,8 @@ const Quiz = () => {
       setSelectedAnswer(answers[currentQuestion + 1] ?? null);
       setIsSubmitted(false);
     } else {
+      let finalScore = calculateScore();
+
       if (serverQuizId) {
         try {
           const payload = questions.map((q, index) => ({
@@ -106,15 +112,20 @@ const Quiz = () => {
             selectedOption: q.options?.[answers[index]],
             conceptTag: q.type || "general",
           }));
-          setServerResult(
-            await api.submitQuiz(serverQuizId, {
-              attemptId,
-              answers: payload,
-              topicId,
-            }),
-          );
+          const res = await api.submitQuiz(serverQuizId, {
+            attemptId,
+            answers: payload,
+            topicId,
+          });
+          setServerResult(res);
+          finalScore = res?.score ?? finalScore;
         } catch (_error) {
           setServerResult(null);
+        }
+      }
+      if (quizType === "mandatory" && taskId) {
+        if (finalScore === 100) {
+          await api.completeTask(taskId, { understanding_score: finalScore });
         }
       }
       setShowResult(true);
@@ -206,18 +217,40 @@ const Quiz = () => {
             </div>
 
             <div className="flex gap-4">
-              <button
-                onClick={() => navigate("/student/results")}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all"
-              >
-                View Results
-              </button>
-              <button
-                onClick={() => navigate(`/student/learn/${topicId}`)}
-                className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl font-semibold transition-all"
-              >
-                Review Topic
-              </button>
+              {quizType === "mandatory" ? (
+                score === 100 ? (
+                  <button
+                    onClick={() => navigate("/student/dashboard")}
+                    className="flex-1 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-semibold transition-all flex justify-center items-center gap-2 shadow-lg shadow-green-500/20"
+                  >
+                    <CheckCircle size={20} /> Mastered! Unlock Next Topic
+                  </button>
+                ) : (
+                  <button
+                    onClick={() =>
+                      navigate(`/student/revision/${topicId}?taskId=${taskId}`)
+                    }
+                    className="flex-1 py-3 bg-orange-600 hover:bg-orange-500 rounded-xl font-semibold transition-all shadow-lg shadow-orange-500/20"
+                  >
+                    Start AI Targeted Revision
+                  </button>
+                )
+              ) : (
+                <>
+                  <button
+                    onClick={() => navigate("/student/results")}
+                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all"
+                  >
+                    View Results
+                  </button>
+                  <button
+                    onClick={() => navigate(`/student/learn/${topicId}`)}
+                    className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl font-semibold transition-all"
+                  >
+                    Review Topic
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

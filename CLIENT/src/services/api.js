@@ -136,24 +136,36 @@ export const api = {
     requestFallback([`/topics/topics/${topicId}`], {
       method: "DELETE",
     }),
-    createStudyPlan: (data) => request("/study-plans", { method: "POST", body: data }),
-  
-  generatePlanTasks: (planId, payload) => request(`/study-plans/${planId}/generate`, { method: "POST", body: payload }),
-  
+  createStudyPlan: (data) =>
+    request("/study-plans", { method: "POST", body: data }),
+
+  generatePlanTasks: (planId, payload) =>
+    request(`/study-plans/${planId}/generate`, {
+      method: "POST",
+      body: payload,
+    }),
+
   planTasks: (planId) => request(`/study-plans/${planId}/tasks`),
 
-  startSession: (data) => request("/study-sessions/start", { method: "POST", body: data }),
-  
-  startSessionFromTask: (taskId) => request(`/study-sessions/start-from-task/${taskId}`, { method: "POST" }),
-  
-  endSession: (data) => request("/study-sessions/end", { method: "POST", body: data }),
-  
-  todayTasks: () => request("/study-tasks/today"),
-  
-  completeTask: (taskId, payload = {}) => request(`/study-tasks/${taskId}/complete`, { method: "POST", body: payload }),
+  startSession: (data) =>
+    request("/study-sessions/start", { method: "POST", body: data }),
 
-  
-  content: (topicId, sessionId, taskId) => request(`/content/${topicId}?sessionId=${sessionId}&taskId=${taskId}`),
+  startSessionFromTask: (taskId) =>
+    request(`/study-sessions/start-from-task/${taskId}`, { method: "POST" }),
+
+  endSession: (data) =>
+    request("/study-sessions/end", { method: "POST", body: data }),
+
+  todayTasks: () => request("/study-tasks/today"),
+
+  completeTask: (taskId, payload = {}) =>
+    request(`/study-tasks/${taskId}/complete`, {
+      method: "POST",
+      body: payload,
+    }),
+
+  content: (topicId, sessionId, taskId) =>
+    request(`/content/${topicId}?sessionId=${sessionId}&taskId=${taskId}`),
   generateContent: (payload) =>
     request("/content/generate", { method: "POST", body: payload }),
   uploadContent: async (formData) => {
@@ -188,11 +200,11 @@ export const api = {
       method: "POST",
       body: payload.answers ? payload : { answers: payload },
     }),
-  results: () => requestFallback(["/results", "/analytics/overview"]),
-  quizResult: (quizId) => request(`/quiz/${quizId}/result`),
-  analyticsMe: () => requestFallback(["/analytics/me", "/analytics/overview"]),
-  analyticsAdmin: () =>
-    requestFallback(["/analytics/admin", "/analytics/overview"]),
+  // results: () => requestFallback(["/results", "/analytics/overview"]),
+  // quizResult: (quizId) => request(`/quiz/${quizId}/result`),
+  // analyticsMe: () => requestFallback(["/analytics/me", "/analytics/overview"]),
+  // analyticsAdmin: () =>
+  //   requestFallback(["/analytics/admin", "/analytics/overview"]),
   recommendations: () =>
     requestFallback(["/recommendations", "/mistakes/weak-topics"]),
   mistakes: () => request("/analytics/mistakes"),

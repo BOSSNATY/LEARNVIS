@@ -47,15 +47,9 @@ const LearnPage = () => {
     try {
       if (sessionId)
         await api.endSession({ sessionId: sessionId, focusScore: 80 });
-      if (taskId) {
-        const res = await api.completeTask(taskId, { understanding_score: 85 });
-
-        if (res.progress) {
-          setStats((prev) => ({ ...prev, progress: res.progress }));
-        }
-      }
+      navigate(`/student/quiz/${topicId}?taskId=${taskId}&type=mandatory`);
     } catch (err) {
-      alert("Failed to complete task");
+      alert("Failed towrap up sessoin. Please try again.");
       setIsCompleting(false);
     }
   };

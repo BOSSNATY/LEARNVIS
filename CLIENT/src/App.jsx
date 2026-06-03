@@ -168,46 +168,46 @@ function App() {
             }
           />
           {/* ================= ANALYTICS ================= */}
-          <Route
+          {/* <Route
             path="/student/results"
             element={
               <ProtectedRoute>
                 <StudentResults />
               </ProtectedRoute>
             }
-          />
-          <Route
+          /> */}
+          {/* <Route
             path="/student/analytics"
             element={
               <ProtectedRoute>
                 <StudentAnalytics />
               </ProtectedRoute>
             }
-          />
-          <Route
+          /> */}
+          {/* <Route
             path="/student/mistakes"
             element={
               <ProtectedRoute>
                 <StudentMistakes />
               </ProtectedRoute>
             }
-          />
-          <Route
+          /> */}
+          {/* <Route
             path="/student/prediction"
             element={
               <ProtectedRoute>
                 <Prediction />
               </ProtectedRoute>
             }
-          />
-          <Route
+          /> */}
+          {/* <Route
             path="/student/recommendations"
             element={
               <ProtectedRoute>
                 <StudentRecommendations />
               </ProtectedRoute>
             }
-          />
+          /> */}
           {/* ================= STUDY SYSTEM ================= */}
           <Route path="/student/planner" element={<StudentPlanner />} />
           <Route path="/student/calendar" element={<StudentCalendar />} />
@@ -217,12 +217,12 @@ function App() {
             element={<StudentRevision />}
           />
           {/* ================= MOCK EXAM ================= */}
-          <Route path="/student/mock-exam" element={<StudentMockExam />} />
+          {/* <Route path="/student/mock-exam" element={<StudentMockExam />} />
           <Route path="/student/mock-exam/:id" element={<MockExamTake />} />
           <Route
             path="/student/mock-exam/:id/result"
             element={<MockExamResult />}
-          />
+          /> */}
           {/* ================= PROFILE ================= */}
           <Route path="/student/profile" element={<StudentProfile />} />
           <Route path="/student/settings" element={<StudentSettings />} />
