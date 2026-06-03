@@ -29,6 +29,8 @@ exports.generateQuizAI = async ({ topic, difficulty, count }) => {
 
             Generate ${count} questions about "${topic}".
             Difficulty: ${difficulty}
+            
+            First, analyze the cognitive load and calculate an appropriate time limit (in seconds) for the student to complete this entire quiz.
 
             Rules:
             - Mix conceptual, application, and reasoning questions
@@ -37,16 +39,19 @@ exports.generateQuizAI = async ({ topic, difficulty, count }) => {
             - Return STRICT JSON (no explanation)
 
             Format:
-            [
             {
-                "question": "...",
-                "cognitive_category": "conceptual | calculation | application",
-                "options": [
-                {"text": "...", "is_correct": true},
-                {"text": "...", "is_correct": false}
-                ]
+              "timeLimitSeconds": 300,
+              "questions": [
+                {
+                    "question": "...",
+                    "cognitive_category": "conceptual | calculation | application",
+                    "options": [
+                    {"text": "...", "is_correct": true},
+                    {"text": "...", "is_correct": false}
+                    ]
+                }
+              ]
             }
-            ]
             `;
 
     const response = await ai.models.generateContent({
@@ -55,11 +60,23 @@ exports.generateQuizAI = async ({ topic, difficulty, count }) => {
     });
 
     let text = response.text.trim();
-
-    // Clean possible markdown
     text = text.replace(/```json|```/g, "");
 
-    return JSON.parse(text);
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        parsed.timeLimitSeconds = count * 60; // fallback
+        return parsed;
+      }
+
+      // Attach timeLimit to the array itself so we don't break existing code!
+      const questionsArray = parsed.questions || [];
+      questionsArray.timeLimitSeconds = parsed.timeLimitSeconds || count * 60;
+      return questionsArray;
+    } catch (err) {
+      console.error("Failed to parse AI Quiz JSON:", text);
+      throw new Error("Invalid JSON format from AI");
+    }
   });
 };
 
