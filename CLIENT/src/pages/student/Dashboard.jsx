@@ -25,7 +25,7 @@ const Dashboard = () => {
       try {
         const [dashData, tasksData] = await Promise.all([
           api.dashboard(),
-          api.todayTasks().catch(() => ({ tasks: [] })) // catch if none exist
+          api.todayTasks().catch(() => ({ tasks: [] })), // catch if none exist
         ]);
         setDashboard({ ...dashData, todayTasks: tasksData.tasks || [] });
       } catch (err) {
@@ -37,6 +37,26 @@ const Dashboard = () => {
 
     fetchDashboard();
   }, []);
+
+  const sessionChecker = async (task) => {
+    try {
+      // If it's already done, just open it for review without starting a timer!
+      if (task.status === "completed") {
+        navigate(
+          `/student/learn/${task.topic_id}?taskId=${task.id}&type=${task.session_type}&isReview=true`,
+        );
+        return;
+      }
+      // Otherwise, start a new tracked session
+      const session = await api.startSessionFromTask(task.id);
+      navigate(
+        `/student/learn/${task.topic_id}?taskId=${task.id}&session=${session.sessionId}&type=${task.session_type}`,
+      );
+    } catch (err) {
+      console.error("Dashboard error:", err);
+      alert("Failed to start session");
+    }
+  };
 
   const subjects = dashboard?.subjects || [];
   const recentActivity = dashboard?.recentActivity || [];
@@ -149,46 +169,55 @@ const Dashboard = () => {
                 </div>
               </div>
             )}
-            
+
             {/* TODAY'S AI STUDY TASKS */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Calendar size={20} className="text-blue-400" /> Up Next (Your Plan)
+                <Calendar size={20} className="text-blue-400" /> Up Next (Your
+                Plan)
               </h2>
               {dashboard?.todayTasks?.length > 0 ? (
                 <div className="space-y-3">
                   {dashboard.todayTasks.map((task) => (
-                    <div key={task.id} className="bg-[#1f2937] p-5 rounded-2xl flex items-center justify-between border border-white/5 hover:border-blue-500/30 transition-all">
+                    <div
+                      key={task.id}
+                      className="bg-[#1f2937] p-5 rounded-2xl flex items-center justify-between border border-white/5 hover:border-blue-500/30 transition-all"
+                    >
                       <div>
-                        <h3 className="font-semibold text-lg">{task.topic_title}</h3>
+                        <h3 className="font-semibold text-lg">
+                          {task.topic_title}
+                        </h3>
                         <p className="text-sm text-gray-400 capitalize">
-                          {new Date(task.scheduled_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} • {task.session_type} Session 
+                          {new Date(task.scheduled_date).toLocaleDateString(
+                            undefined,
+                            {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )}{" "}
+                          • {task.session_type} Session
                         </p>
-                      </div>  
-                      <button 
-                          onClick={async () => {
-                            try {
-                              const session = await api.startSessionFromTask(task.id);
-                              navigate(`/student/learn/${task.topic_id}?taskId=${task.id}&session=${session.sessionId}&type=${task.session_type}`);
-                            } catch (err) {
-                              console.error("Dashboard error:", err);
-                              alert("Failed to start session");
-                            }
-                          }}
-                          className={`px-5 py-2.5 rounded-xl font-medium transition-colors ${
-                            task.status === 'completed' 
-                              ? 'bg-gray-600 hover:bg-gray-500 text-white' 
-                              : 'bg-blue-600 hover:bg-blue-500 text-white' 
-                          }`} 
-                        >
-                        {task.status === 'completed' ? 'Completed' : 'Start Learning'}
+                      </div>
+                      <button
+                        onClick={() => sessionChecker(task)}
+                        className={`px-5 py-2.5 rounded-xl font-medium transition-colors ${
+                          task.status === "completed"
+                            ? "bg-gray-600 hover:bg-gray-500 text-white"
+                            : "bg-blue-600 hover:bg-blue-500 text-white"
+                        }`}
+                      >
+                        {task.status === "completed"
+                          ? "Completed"
+                          : "Start Learning"}
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="bg-[#111827]/40 p-6 rounded-2xl border border-white/5 text-center text-gray-400">
-                  You have no tasks scheduled for today. Go to a Subject to create a Study Plan!
+                  You have no tasks scheduled for today. Go to a Subject to
+                  create a Study Plan!
                 </div>
               )}
             </div>
