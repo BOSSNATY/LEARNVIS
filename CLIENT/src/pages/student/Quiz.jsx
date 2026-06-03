@@ -27,6 +27,7 @@ const Quiz = () => {
   const [attemptId, setAttemptId] = useState(null);
   const [questions, setQuestions] = useState(quizQuestions);
   const [serverResult, setServerResult] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(null);
 
   const topic = getTopicById(topicId);
   const location = useLocation();
@@ -41,6 +42,10 @@ const Quiz = () => {
       .then(async (generated) => {
         const quizId = generated.quizId || generated.id;
         setServerQuizId(quizId);
+
+        if (generated.timeLimitSeconds) {
+          setTimeLeft(generated.timeLimitSeconds);
+        }
         const [quizQuestionsFromApi, attempt] = await Promise.all([
           api.quiz(quizId),
           api.startAttempt(quizId).catch(() => null),
@@ -64,6 +69,20 @@ const Quiz = () => {
       })
       .catch(() => setQuestions(quizQuestions));
   }, [topicId]);
+
+  useEffect(() => {
+    if (timeLeft === null || showResult) return;
+
+    if (timeLeft <= 0) {
+      handleNext(true);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft, showResult]);
 
   if (!topic) {
     return (
@@ -97,8 +116,8 @@ const Quiz = () => {
     }
   };
 
-  const handleNext = async () => {
-    if (currentQuestion < questions.length - 1) {
+  const handleNext = async (forceSubmit = false) => {
+    if (forceSubmit !== true && currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(answers[currentQuestion + 1] ?? null);
       setIsSubmitted(false);
@@ -275,10 +294,14 @@ const Quiz = () => {
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold">{topic.title} - Quiz</h1>
             <div className="flex items-center gap-4 text-sm text-gray-400">
-              <span className="flex items-center gap-1">
-                <Clock size={16} />
-                No time limit
+              <span
+                className={`font-semibold px-3 py-1 rounded-lg ${timeLeft !== null && timeLeft <= 60 ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-blue-500/20 text-blue-400"}`}
+              >
+                {timeLeft !== null
+                  ? `⏱ ${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, "0")}`
+                  : "⏱ Calculating..."}
               </span>
+
               <span>
                 Question {currentQuestion + 1} of {questions.length}
               </span>
