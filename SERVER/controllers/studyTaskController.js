@@ -30,7 +30,7 @@ exports.getTodayTasks = async (req, res) => {
         FROM study_tasks st
         JOIN study_plans sp ON st.plan_id = sp.id
         JOIN topics t ON st.topic_id = t.id
-        WHERE sp.user_id = ? AND st.status = 'pending'
+        WHERE sp.user_id = ? AND st.status IN ('pending', 'missed')
         ORDER BY st.scheduled_date ASC, st.id ASC
         LIMIT 3
       )
@@ -38,7 +38,6 @@ exports.getTodayTasks = async (req, res) => {
       `,
       [userId, userId], // Note: We pass userId twice because there are two '?' in the query now
     );
-
 
     if (!tasks.length) {
       return res.json({
@@ -77,16 +76,18 @@ exports.completeTask = async (req, res) => {
     await pool.execute(
       `UPDATE study_tasks
        SET status = 'completed', understanding_score = ?, progress_percent = 100
-       WHERE id = ?`, 
+       WHERE id = ?`,
       [understanding_score || null, taskId],
     );
     // 3. 🧠 DYNAMIC CALCULATION: Look at ALL tasks for this topic in the current plan
     const [allTopicTasks] = await pool.execute(
       "SELECT status FROM study_tasks WHERE plan_id = ? AND topic_id = ?",
-      [task.plan_id, task.topic_id]
+      [task.plan_id, task.topic_id],
     );
     const total = allTopicTasks.length;
-    const completed = allTopicTasks.filter(t => t.status === 'completed').length;
+    const completed = allTopicTasks.filter(
+      (t) => t.status === "completed",
+    ).length;
     const calculatedProgress = Math.round((completed / total) * 100);
     // 4. Update the GLOBAL Learning State (Mastery Score)
     // We use the student's self-reported understanding_score as the initial Mastery Score!
@@ -99,16 +100,21 @@ exports.completeTask = async (req, res) => {
          mastery_score = GREATEST(mastery_score, ?),
          updated_at = CURRENT_TIMESTAMP`,
       [
-        userId, task.subject_id, task.topic_id, calculatedProgress, understanding_score || 0,
-        calculatedProgress, calculatedProgress, understanding_score || 0
-      ]
+        userId,
+        task.subject_id,
+        task.topic_id,
+        calculatedProgress,
+        understanding_score || 0,
+        calculatedProgress,
+        calculatedProgress,
+        understanding_score || 0,
+      ],
     );
     res.json({ message: "Task completed!", progress: calculatedProgress });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
-
 
 exports.markMissedTasks = async () => {
   try {
