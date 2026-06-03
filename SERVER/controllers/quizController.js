@@ -32,7 +32,7 @@ exports.generateQuiz = async (req, res) => {
     if (!topic) return res.status(404).json({ error: "Topic not found" });
 
     const difficulty = mode === "exam" ? "hard" : "medium";
-    const count = mode === "exam" ? 20 : 10;
+    const count = mode === "mandatory" || mode === "exam" ? 20 : 10;
     let questions;
 
     try {
@@ -74,6 +74,8 @@ exports.generateQuiz = async (req, res) => {
       topicId,
       difficulty,
       questionCount: questions.length,
+      timeLimitSeconds: questions.timeLimitSeconds || count *60
+      questions: formattedQuestions,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
