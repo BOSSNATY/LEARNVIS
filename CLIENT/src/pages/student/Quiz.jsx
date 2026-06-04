@@ -28,6 +28,7 @@ const Quiz = () => {
   const [questions, setQuestions] = useState(quizQuestions);
   const [serverResult, setServerResult] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [error, setError] = useState(null);
 
   const topic = getTopicById(topicId);
   const location = useLocation();
@@ -67,7 +68,11 @@ const Quiz = () => {
           })),
         );
       })
-      .catch(() => setQuestions(quizQuestions));
+      .catch((err) => {
+        console.error("Quiz generation failed:", err);
+        setError("AI is busy right now. Please try again.");
+        setQuestions([]);
+      });
   }, [topicId]);
 
   useEffect(() => {
@@ -185,6 +190,62 @@ const Quiz = () => {
     });
     return Math.round((correct / questions.length) * 100);
   };
+
+  if (error) {
+    return (
+      <StudentLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <p className="text-red-400 text-lg">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              setQuestions([]);
+              // Re-trigger the quiz generation
+              api
+                .generateQuiz({ topicId, mode: quizType })
+                .then(async (generated) => {
+                  const quizId = generated.quizId || generated.id;
+                  setServerQuizId(quizId);
+                  if (generated.timeLimitSeconds) {
+                    setTimeLeft(generated.timeLimitSeconds);
+                  }
+                  const [quizQuestionsFromApi, attempt] = await Promise.all([
+                    api.quiz(quizId),
+                    api.startAttempt(quizId).catch(() => null),
+                  ]);
+                  if (attempt?.attemptId) setAttemptId(attempt.attemptId);
+                  setQuestions(
+                    quizQuestionsFromApi.map((question) => ({
+                      id: question.id || question.question_id,
+                      question: question.question_text,
+                      type:
+                        question.cognitive_category === "calculation"
+                          ? "application"
+                          : question.cognitive_category,
+                      options: question.options.map(
+                        (option) => option.option_text,
+                      ),
+                      optionIds: question.options.map((option) => option.id),
+                      correctAnswer: question.options.findIndex(
+                        (option) => option.is_correct,
+                      ),
+                    })),
+                  );
+                })
+                .catch(() =>
+                  setError(
+                    "Still unavailable. Please wait a moment and try again.",
+                  ),
+                );
+            }}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all"
+          >
+            🔄 Retry Quiz Generation
+          </button>
+        </div>
+      </StudentLayout>
+    );
+  }
 
   if (showResult) {
     const score = serverResult?.score ?? calculateScore();

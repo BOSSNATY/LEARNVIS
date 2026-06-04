@@ -74,8 +74,8 @@ exports.generateQuiz = async (req, res) => {
       topicId,
       difficulty,
       questionCount: questions.length,
-      timeLimitSeconds: questions.timeLimitSeconds || count *60
-      questions: formattedQuestions,
+      timeLimitSeconds: questions.timeLimitSeconds || count * 60,
+      questions: questions,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -4,17 +4,17 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-// 🔁 SAFE WRAPPER (put here)
-async function safeGenerate(fn, retries = 3) {
+// 🔁 SAFE WRAPPER with exponential backoff
+async function safeGenerate(fn, retries = 3, delay = 3000) {
   try {
     return await fn();
   } catch (err) {
     console.error("AI Error:", err.message);
 
     if (retries > 0) {
-      console.log(`Retrying AI... (${retries})`);
-      await new Promise((r) => setTimeout(r, 3000));
-      return safeGenerate(fn, retries - 1);
+      console.log(`Retrying AI in ${delay / 1000}s... (${retries} left)`);
+      await new Promise((r) => setTimeout(r, delay));
+      return safeGenerate(fn, retries - 1, delay * 2); // Double the wait each time
     }
 
     throw err;
