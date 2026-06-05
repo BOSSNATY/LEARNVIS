@@ -33,6 +33,26 @@ exports.generateQuiz = async (req, res) => {
 
     const difficulty = mode === "exam" ? "hard" : "medium";
     const count = mode === "mandatory" || mode === "exam" ? 20 : 10;
+
+    // 🛑 Prevent duplicate generation (React Strict Mode/double click) within a short window (5s)
+    const [recent] = await pool.execute(
+      `SELECT id FROM quizzes 
+       WHERE topic_id = ? AND difficulty = ? AND created_at >= NOW() - INTERVAL 5 SECOND
+       ORDER BY id DESC LIMIT 1`,
+      [topicId, difficulty],
+    );
+
+    if (recent.length > 0) {
+      return res.json({
+        quizId: recent[0].id,
+        id: recent[0].id,
+        topicId,
+        difficulty,
+        questionCount: count,
+        timeLimitSeconds: count * 60,
+      });
+    }
+
     let questions;
 
     try {
@@ -60,7 +80,10 @@ exports.generateQuiz = async (req, res) => {
         "INSERT INTO questions (quiz_id, question_text, cognitive_category) VALUES (?, ?, ?)",
         [quizId, q.question, q.cognitive_category || "conceptual"],
       );
-      for (const opt of q.options || []) {
+      const shuffledOptions = [...(q.options || [])].sort(
+        () => Math.random() - 0.5,
+      );
+      for (const opt of shuffledOptions) {
         await pool.execute(
           "INSERT INTO question_options (question_id, option_text, is_correct) VALUES (?, ?, ?)",
           [qRes.insertId, opt.text || opt.option_text, opt.is_correct ? 1 : 0],
@@ -137,6 +160,19 @@ exports.startAttempt = async (req, res) => {
       req.params.quizId,
     ]);
     if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+    // 🛑 Prevent duplicate attempts starting from duplicate frontend requests
+    const [existingAttempts] = await pool.execute(
+      "SELECT id, round_number FROM quiz_attempts WHERE user_id = ? AND quiz_id = ? AND completed_at IS NULL ORDER BY id DESC LIMIT 1",
+      [userId, req.params.quizId],
+    );
+
+    if (existingAttempts.length > 0) {
+      return res.json({
+        attemptId: existingAttempts[0].id,
+        round: existingAttempts[0].round_number,
+      });
+    }
+
     const [countRes] = await pool.execute(
       "SELECT COUNT(*) AS count FROM quiz_attempts WHERE user_id = ? AND quiz_id = ?",
       [userId, req.params.quizId],
@@ -307,6 +343,12 @@ exports.generateRemasteredQuiz = async (req, res) => {
     const questions = wrongRows.length
       ? await rephraseQuestionsAI(wrongRows).catch(() => [])
       : [];
+    // 🔀 Shuffle rephrased options as well
+    questions.forEach((q) => {
+      if (Array.isArray(q.options)) {
+        q.options.sort(() => Math.random() - 0.5);
+      }
+    });
     res.json({ quizId: req.params.quizId, questions });
   } catch (err) {
     res.status(500).json({ error: err.message });
