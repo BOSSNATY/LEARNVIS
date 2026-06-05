@@ -340,15 +340,18 @@ exports.generateRemasteredQuiz = async (req, res) => {
        WHERE qa.quiz_id = ? AND ans.is_correct = 0`,
       [req.params.quizId],
     );
+
     const questions = wrongRows.length
       ? await rephraseQuestionsAI(wrongRows).catch(() => [])
       : [];
+
     // 🔀 Shuffle rephrased options as well
     questions.forEach((q) => {
       if (Array.isArray(q.options)) {
         q.options.sort(() => Math.random() - 0.5);
       }
     });
+
     res.json({ quizId: req.params.quizId, questions });
   } catch (err) {
     res.status(500).json({ error: err.message });
