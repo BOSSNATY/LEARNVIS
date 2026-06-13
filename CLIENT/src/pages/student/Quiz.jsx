@@ -22,7 +22,6 @@ const Quiz = () => {
   const [answers, setAnswers] = useState({});
   const [showResult, setShowResult] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [serverQuizId, setServerQuizId] = useState(null);
   const [attemptId, setAttemptId] = useState(null);
   const [questions, setQuestions] = useState(quizQuestions);
@@ -109,31 +108,34 @@ const Quiz = () => {
   const progress = ((currentQuestion + 1) / questions.length) * 100;
 
   const handleAnswerSelect = (answerIndex) => {
-    if (!isSubmitted) {
-      setSelectedAnswer(answerIndex);
-    }
-  };
-
-  const handleSubmitAnswer = () => {
-    if (selectedAnswer !== null) {
-      setAnswers({ ...answers, [currentQuestion]: selectedAnswer });
-      setIsSubmitted(true);
-    }
+    setSelectedAnswer(answerIndex);
   };
 
   const handleNext = async (forceSubmit = false) => {
+    let updatedAnswers = answers;
+    if (selectedAnswer !== null) {
+      updatedAnswers = { ...answers, [currentQuestion]: selectedAnswer };
+      setAnswers(updatedAnswers);
+    }
+
     if (forceSubmit !== true && currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
-      setSelectedAnswer(answers[currentQuestion + 1] ?? null);
-      setIsSubmitted(false);
+      setSelectedAnswer(updatedAnswers[currentQuestion + 1] ?? null);
     } else {
       let finalScore = calculateScore();
+
+      // Recalculate score locally to ensure we use the latest answers
+      let correct = 0;
+      questions.forEach((q, index) => {
+        if (updatedAnswers[index] === q.correctAnswer) correct++;
+      });
+      finalScore = Math.round((correct / questions.length) * 100);
 
       if (serverQuizId) {
         try {
           const payload = questions.map((q, index) => ({
             questionId: q.id,
-            selectedOption: q.options?.[answers[index]],
+            selectedOption: q.options?.[updatedAnswers[index]],
             conceptTag: q.type || "general",
           }));
           const res = await api.submitQuiz(serverQuizId, {
@@ -400,47 +402,23 @@ const Quiz = () => {
                 <button
                   key={index}
                   onClick={() => handleAnswerSelect(index)}
-                  disabled={isSubmitted}
                   className={`w-full p-4 rounded-xl border text-left transition-all ${
                     selectedAnswer === index
-                      ? isSubmitted
-                        ? index === question.correctAnswer
-                          ? "bg-green-600/20 border-green-500"
-                          : "bg-red-600/20 border-red-500"
-                        : "bg-blue-600/20 border-blue-500"
-                      : isSubmitted && index === question.correctAnswer
-                        ? "bg-green-600/20 border-green-500"
-                        : "bg-white/5 border-white/10 hover:bg-white/10"
+                      ? "bg-blue-600/20 border-blue-500"
+                      : "bg-white/5 border-white/10 hover:bg-white/10"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold ${
                         selectedAnswer === index
-                          ? isSubmitted
-                            ? index === question.correctAnswer
-                              ? "bg-green-500 text-white"
-                              : "bg-red-500 text-white"
-                            : "bg-blue-500 text-white"
-                          : isSubmitted && index === question.correctAnswer
-                            ? "bg-green-500 text-white"
-                            : "bg-gray-700 text-gray-300"
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-700 text-gray-300"
                       }`}
                     >
                       {String.fromCharCode(65 + index)}
                     </div>
                     <span className="text-gray-200">{option}</span>
-                    {isSubmitted && index === question.correctAnswer && (
-                      <CheckCircle
-                        className="text-green-400 ml-auto"
-                        size={20}
-                      />
-                    )}
-                    {isSubmitted &&
-                      selectedAnswer === index &&
-                      index !== question.correctAnswer && (
-                        <X className="text-red-400 ml-auto" size={20} />
-                      )}
                   </div>
                 </button>
               ))}
@@ -453,13 +431,23 @@ const Quiz = () => {
           )}
 
           {/* Action Buttons */}
+          {/* Action Buttons */}
           <div className="flex justify-between mt-8">
             <button
               onClick={() => {
                 if (currentQuestion > 0) {
+                  let updatedAnswers = answers;
+                  if (selectedAnswer !== null) {
+                    updatedAnswers = {
+                      ...answers,
+                      [currentQuestion]: selectedAnswer,
+                    };
+                    setAnswers(updatedAnswers);
+                  }
                   setCurrentQuestion(currentQuestion - 1);
-                  setSelectedAnswer(answers[currentQuestion - 1] ?? null);
-                  setIsSubmitted(answers[currentQuestion - 1] !== undefined);
+                  setSelectedAnswer(
+                    updatedAnswers[currentQuestion - 1] ?? null,
+                  );
                 }
               }}
               className="px-6 py-3 bg-white/5 hover:bg-white/10 rounded-xl font-semibold transition-all"
@@ -468,28 +456,20 @@ const Quiz = () => {
               Previous
             </button>
 
-            {!isSubmitted ? (
-              <button
-                onClick={handleSubmitAnswer}
-                disabled={selectedAnswer === null}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Submit Answer
-              </button>
-            ) : (
-              <button
-                onClick={handleNext}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all flex items-center gap-2"
-              >
-                {currentQuestion === questions.length - 1
-                  ? "Finish Quiz"
-                  : "Next Question"}
-                <ChevronRight size={18} />
-              </button>
-            )}
+            <button
+              onClick={() => handleNext(false)}
+              disabled={selectedAnswer === null}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {currentQuestion === questions.length - 1
+                ? "Finish Quiz"
+                : "Next Question"}
+              <ChevronRight size={18} />
+            </button>
           </div>
         </div>
 
+        {/* Question Navigator */}
         {/* Question Navigator */}
         <div className="mt-6 bg-[#111827]/40 backdrop-blur-xl border border-white/5 rounded-2xl p-4">
           <div className="flex items-center gap-2 flex-wrap">
@@ -497,9 +477,16 @@ const Quiz = () => {
               <button
                 key={index}
                 onClick={() => {
+                  let updatedAnswers = answers;
+                  if (selectedAnswer !== null) {
+                    updatedAnswers = {
+                      ...answers,
+                      [currentQuestion]: selectedAnswer,
+                    };
+                    setAnswers(updatedAnswers);
+                  }
                   setCurrentQuestion(index);
-                  setSelectedAnswer(answers[index] ?? null);
-                  setIsSubmitted(answers[index] !== undefined);
+                  setSelectedAnswer(updatedAnswers[index] ?? null);
                 }}
                 className={`w-10 h-10 rounded-lg font-semibold transition-all ${
                   index === currentQuestion

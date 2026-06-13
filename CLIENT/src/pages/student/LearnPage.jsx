@@ -107,18 +107,54 @@ const LearnPage = () => {
       .then((data) => {
         const contentPayload = data.content || data.primary || data;
 
-        let parsedAiData = {
-          text: fallbackContent.text,
-          keyPoints: fallbackContent.keyPoints,
-        };
-        try {
-          // Strip any weird markdown JSON wrappers Gemini might add
-          let rawText = contentPayload.text_content
-            .replace(/```json\n?|\n?```/g, "")
-            .trim();
-          parsedAiData = JSON.parse(rawText);
-        } catch (e) {
-          parsedAiData.text = contentPayload.text_content; // Fallback
+        let rawText = contentPayload.text_content || "";
+        // Strip any weird markdown wrappers Gemini might add
+        rawText = rawText
+          .replace(/```json\n?|```markdown\n?|\n?```/g, "")
+          .trim();
+
+        let parsedText = rawText;
+        let parsedKeyPoints = fallbackContent.keyPoints;
+
+        // 🔀 Check if content has the plain-text key points divider
+        if (rawText.includes("---KEY_POINTS---")) {
+          const parts = rawText.split("---KEY_POINTS---");
+          parsedText = parts[0].trim();
+
+          const rawPoints = parts[1].trim().split("\n");
+          // Remove bullet points symbols (- or *) and trim whitespace
+          parsedKeyPoints = rawPoints
+            .map((line) => line.replace(/^[\s\-\*\d\.\)]+/, "").trim())
+            .filter((line) => line.length > 0)
+            .slice(0, 4);
+        } else if (rawText.startsWith("{")) {
+          // 🛡️ Backward compatibility for cached JSON entries
+          try {
+            const parsed = JSON.parse(rawText);
+            parsedText = parsed.text || rawText;
+            parsedKeyPoints = parsed.keyPoints || fallbackContent.keyPoints;
+          } catch (e) {
+            // Regex fallback for malformed JSON strings
+            const match = rawText.match(
+              /"text"\s*:\s*"([\s\S]*?)"\s*,\s*"keyPoints"/,
+            );
+            if (match && match[1]) {
+              parsedText = match[1]
+                .replace(/\\n/g, "\n")
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, "\\");
+            } else {
+              const simpleMatch = rawText.match(
+                /"text"\s*:\s*"([\s\S]*?)"\s*}/,
+              );
+              if (simpleMatch && simpleMatch[1]) {
+                parsedText = simpleMatch[1]
+                  .replace(/\\n/g, "\n")
+                  .replace(/\\"/g, '"')
+                  .replace(/\\\\/g, "\\");
+              }
+            }
+          }
         }
 
         setContent({
@@ -126,9 +162,10 @@ const LearnPage = () => {
             contentPayload.type === "video"
               ? contentPayload.video_url
               : fallbackContent.video,
-          text: parsedAiData.text || fallbackContent.text,
-          keyPoints: parsedAiData.keyPoints || fallbackContent.keyPoints,
+          text: parsedText || fallbackContent.text,
+          keyPoints: parsedKeyPoints,
         });
+
         setStats({
           progress: data.learningState?.progress_percent || 0,
           mastery: data.learningState?.mastery_score || 0,
