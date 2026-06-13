@@ -90,6 +90,12 @@ exports.startFromTask = async (req, res) => {
     let sessionId;
     if (existingSession.length > 0) {
       sessionId = existingSession[0].id;
+      
+      await pool.execute(
+        `UPDATE study_sessions SET start_time = NOW() WHERE id = ?`,
+        [sessionId]
+      );
+
     } else {
       const [result] = await pool.execute(
         `INSERT INTO study_sessions

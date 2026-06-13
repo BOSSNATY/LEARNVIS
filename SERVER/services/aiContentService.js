@@ -39,25 +39,19 @@ async function generateTopicContent(topic, userMaterials = [], subtopics) {
             4. Provide step-by-step examples or mathematical breakdowns where relevant.
             5. Anticipate common student misconceptions and address them explicitly.
             6. Format the text beautifully using Markdown headers, bullet points, and bold text for emphasis.
+            7. At the very end of your response, add a  divider line containing exactly: "---KEY_POINTS---"
+            8. After the divider line, list 4 concise, key takeaways from the lesson, each on a new line starting with "- ".
+            9. Return ONLY the raw Markdown content. Do not wrap it in JSON, do not add any markdown code block wrappers (like \`\`\`markdown), just start directly with the chapter header.
             
             User syllabus/materials (incorporate this context deeply if provided): ${materialText}
-
-            You MUST return your response as a valid JSON object with EXACTLY this structure (no markdown code blocks, just raw JSON):
-            {
-              "text": "The full, exhaustive lesson explanation in Markdown format (must be long and highly detailed).",
-              "keyPoints": [
-                "Detailed summary point 1",
-                "Detailed summary point 2",
-                "Detailed summary point 3",
-                "Detailed summary point 4"
-              ]
-            }
                 `,
             },
           ],
         },
       ],
     });
+
+    return response.text;
 
     return response.text;
   } catch (err) {
