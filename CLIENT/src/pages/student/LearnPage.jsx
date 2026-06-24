@@ -30,6 +30,7 @@ const LearnPage = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [hasAttempt, setHasAttempt] = useState(false);
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const taskId = searchParams.get("taskId");
@@ -165,6 +166,7 @@ const LearnPage = () => {
           text: parsedText || fallbackContent.text,
           keyPoints: parsedKeyPoints,
         });
+        setHasAttempt(!!data.hasAttempt);
 
         setStats({
           progress: data.learningState?.progress_percent || 0,
@@ -201,7 +203,7 @@ const LearnPage = () => {
   }
 
   // If they try to bypass the dashboard, lock them out!
-  if (!taskId || !sessionId || content === null) {
+  if (!taskId || (!sessionId && !isReview) || content === null) {
     return (
       <StudentLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
@@ -351,17 +353,23 @@ const LearnPage = () => {
                 <Share2 size={18} />
                 <span>Share</span>
               </button>
-              {(taskId || sessionId) && !isReview && (
-                <button
-                  onClick={handleCompleteTask}
-                  disabled={isCompleting}
-                  className="ml-auto px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20
-                  "
-                >
-                  {isCompleting ? "Loading Quiz..." : "Complete & Take Quiz"}
-                  <ChevronRight size={18} />
-                </button>
-              )}
+              {(taskId || sessionId) &&
+                !isReview &&
+                (hasAttempt ? (
+                  <div className="ml-auto px-6 py-3 bg-white/5 border border-white/10 text-gray-400 rounded-xl font-bold flex items-center gap-2">
+                    <CheckCircle size={18} className="text-green-400" />
+                    <span>Quiz Completed</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleCompleteTask}
+                    disabled={isCompleting}
+                    className="ml-auto px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                  >
+                    {isCompleting ? "Loading Quiz..." : "Complete & Take Quiz"}
+                    <ChevronRight size={18} />
+                  </button>
+                ))}
             </div>
           </div>
 
