@@ -7,6 +7,8 @@ const { updateMistakeProfile } = require("../services/mistakeProfileService");
 const { generateMicroLessons } = require("../services/microLessonService");
 const { updateStudyPlanFromMistakes } = require("../services/studyPlanUpdater");
 
+const activePromises = {};
+
 const fallbackQuestions = (topic, difficulty, count) =>
   Array.from({ length: count }).map((_, index) => ({
     question: `${topic} ${difficulty} question ${index + 1}: choose the best answer.`,
@@ -24,17 +26,29 @@ exports.generateQuiz = async (req, res) => {
   const { topicId, mode } = req.body;
   if (!topicId) return res.status(400).json({ error: "topicId is required" });
 
-  try {
+  const difficulty = mode === "exam" ? "hard" : "medium";
+  const count = mode === "mandatory" || mode === "exam" ? 20 : 10;
+  const promiseKey = `${topicId}-${mode}`;
+
+  // If there is already an active promise for this topic and mode, wait for it!
+  if (activePromises[promiseKey]) {
+    try {
+      const cachedResult = await activePromises[promiseKey];
+      return res.json(cachedResult);
+    } catch (err) {
+      // If it failed, let it fall through and try generating again
+    }
+  }
+
+  // Create the promise for the execution
+  const generationPromise = (async () => {
     const [[topic]] = await pool.execute(
       "SELECT id, title FROM topics WHERE id = ?",
       [topicId],
     );
-    if (!topic) return res.status(404).json({ error: "Topic not found" });
+    if (!topic) throw new Error("Topic not found");
 
-    const difficulty = mode === "exam" ? "hard" : "medium";
-    const count = mode === "mandatory" || mode === "exam" ? 20 : 10;
-
-    // 🛑 Prevent duplicate generation (React Strict Mode/double click) within a short window (5s)
+    // 🛑 Prevent duplicate generation within a short window (5s)
     const [recent] = await pool.execute(
       `SELECT id FROM quizzes 
        WHERE topic_id = ? AND difficulty = ? AND created_at >= NOW() - INTERVAL 5 SECOND
@@ -43,18 +57,17 @@ exports.generateQuiz = async (req, res) => {
     );
 
     if (recent.length > 0) {
-      return res.json({
+      return {
         quizId: recent[0].id,
         id: recent[0].id,
         topicId,
         difficulty,
         questionCount: count,
         timeLimitSeconds: count * 60,
-      });
+      };
     }
 
     let questions;
-
     try {
       questions = await generateQuizAI({
         topic: topic.title,
@@ -66,8 +79,9 @@ exports.generateQuiz = async (req, res) => {
       questions = fallbackQuestions(topic.title, difficulty, count);
     }
 
-    if (!Array.isArray(questions) || !questions.length)
+    if (!Array.isArray(questions) || !questions.length) {
       questions = fallbackQuestions(topic.title, difficulty, count);
+    }
 
     const [quizRes] = await pool.execute(
       "INSERT INTO quizzes (topic_id, difficulty) VALUES (?, ?)",
@@ -91,7 +105,7 @@ exports.generateQuiz = async (req, res) => {
       }
     }
 
-    res.json({
+    return {
       quizId,
       id: quizId,
       topicId,
@@ -99,9 +113,21 @@ exports.generateQuiz = async (req, res) => {
       questionCount: questions.length,
       timeLimitSeconds: questions.timeLimitSeconds || count * 60,
       questions: questions,
-    });
+    };
+  })();
+
+  activePromises[promiseKey] = generationPromise;
+
+  try {
+    const result = await generationPromise;
+    return res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (err.message === "Topic not found") {
+      return res.status(404).json({ error: err.message });
+    }
+    return res.status(500).json({ error: err.message });
+  } finally {
+    delete activePromises[promiseKey];
   }
 };
 
