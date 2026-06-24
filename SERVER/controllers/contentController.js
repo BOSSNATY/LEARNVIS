@@ -48,16 +48,43 @@ exports.getContent = async (req, res) => {
   const taskId = req.query.taskId;
 
   try {
-    const [[validSession]] = await pool.execute(
-      `SELECT id FROM study_sessions 
+    let isValidAccess = false;
+
+    // Check if there is an active session
+    if (sessionId) {
+      const [[validSession]] = await pool.execute(
+        `SELECT id FROM study_sessions 
          WHERE id = ? AND user_id = ? AND topic_id = ? AND status = 'active'`,
-      [sessionId, userId, topicId],
-    );
-    if (!validSession) {
+        [sessionId, userId, topicId],
+      );
+      if (validSession) isValidAccess = true;
+    }
+
+    // If no active session, check if the task is already completed (review mode)
+    if (!isValidAccess && taskId) {
+      const [[completedTask]] = await pool.execute(
+        `SELECT id FROM study_tasks st
+         JOIN study_plans sp ON st.plan_id = sp.id
+         WHERE st.id = ? AND sp.user_id = ? AND st.status = 'completed'`,
+        [taskId, userId],
+      );
+      if (completedTask) isValidAccess = true;
+    }
+
+    if (!isValidAccess) {
       return res.status(403).json({
         error: "Access Denied: No active session found for this topic.",
       });
     }
+
+    // Check if the user has already attempted the quiz for this topic
+    const [[hasAttemptRow]] = await pool.execute(
+      `SELECT qa.id FROM quiz_attempts qa
+       JOIN quizzes q ON qa.quiz_id = q.id
+       WHERE qa.user_id = ? AND q.topic_id = ? LIMIT 1`,
+      [userId, topicId],
+    );
+    const hasAttempt = !!hasAttemptRow;
 
     const [[cached]] = await pool.execute(
       "SELECT * FROM content WHERE topic_id = ? AND task_id = ? ORDER BY id DESC LIMIT 1",
@@ -78,10 +105,11 @@ exports.getContent = async (req, res) => {
     if (cached)
       return res.json({
         topicId,
-        content: cached,
+        content: { text_content: content, source: "ai" },
         materials,
         cached: true,
         learningState,
+        hasAttempt,
       });
 
     let taskSubtopics = null;
