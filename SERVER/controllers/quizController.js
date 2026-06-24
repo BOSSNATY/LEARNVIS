@@ -277,9 +277,19 @@ exports.submitQuiz = async (req, res) => {
     );
     if (quizRow) {
       const status = score >= 96 ? "mastered" : "practicing";
+
+      // Fetch subject_id to ensure we can create a record if it doesn't exist
+      const [[topicRow]] = await pool.execute(
+        "SELECT subject_id FROM topics WHERE id = ?",
+        [quizRow.topic_id],
+      );
+      const subjectId = topicRow?.subject_id || null;
+
       await pool.execute(
-        `UPDATE learning_state SET mastery_score = ?, status = ?, updated_at = NOW() WHERE user_id = ? AND topic_id = ?`,
-        [score, status, userId, quizRow.topic_id],
+        `INSERT INTO learning_state (user_id, subject_id, topic_id, mastery_score, status, updated_at)
+         VALUES (?, ?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE mastery_score = VALUES(mastery_score), status = VALUES(status), updated_at = NOW()`,
+        [userId, subjectId, quizRow.topic_id, score, status],
       );
     }
     if (topicId)
@@ -300,7 +310,7 @@ exports.submitQuiz = async (req, res) => {
       mastered: score >= 96,
     });
   } catch (err) {
-    console.log("Error submitting quiz:", err);
+    console.log("Error in  submitQuiz:", err);
     res.status(500).json({ error: err.message });
   }
 };
