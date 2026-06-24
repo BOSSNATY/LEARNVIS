@@ -5,3 +5,68 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.prose table {
+  width: 100% !important;
+  table-layout: fixed !important; /* The !important forces it to override Tailwind */
+  border-collapse: collapse;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.prose th {
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important; /* Ensures extremely long math formulas or words break */
+}
+
+.prose td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #d1d5db;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important; /* Ensures extremely long math formulas or words break */
+}
+
+.prose tr:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Custom Scrollbar Styling */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 8px; /* Make the horizontal scrollbar thinner */
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02); /* Very subtle track background */
+  border-radius: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(
+    59,
+    130,
+    246,
+    0.5
+  ); /* Blue-500 with 50% opacity to match your theme */
+  border-radius: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.8); /* Brighter blue when hovered */
+}
+
+/* Firefox support */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.5) rgba(255, 255, 255, 0.02);
+}

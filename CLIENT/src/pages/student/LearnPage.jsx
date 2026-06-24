@@ -4,6 +4,7 @@ import { useApp } from "../../context/AppContext";
 import StudentLayout from "../../components/StudentLayout";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
+import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import {
@@ -17,7 +18,9 @@ import {
   ThumbsUp,
   Share2,
   Bookmark,
+  CheckCircle,
 } from "lucide-react";
+
 import { api } from "../../services/api";
 import { useLocation } from "react-router-dom";
 
@@ -255,7 +258,7 @@ const LearnPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6 min-w-0">
             {/* Video Player */}
             <div className="bg-[#111827]/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden">
               <div className="aspect-video bg-gray-900 relative">
@@ -300,8 +303,15 @@ const LearnPage = () => {
                   <div className="prose prose-invert max-w-none">
                     <div className="whitespace-pre-wrap text-gray-300 leading-relaxed">
                       <ReactMarkdown
-                        remarkPlugins={[remarkMath]}
+                        remarkPlugins={[remarkMath, remarkGfm]}
                         rehypePlugins={[rehypeKatex]}
+                        components={{
+                          table: ({ node, ...props }) => (
+                            <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+                              <table {...props} />
+                            </div>
+                          ),
+                        }}
                       >
                         {content.text}
                       </ReactMarkdown>
