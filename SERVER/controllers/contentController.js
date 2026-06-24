@@ -105,7 +105,10 @@ exports.getContent = async (req, res) => {
     if (cached)
       return res.json({
         topicId,
-        content: { text_content: content, source: "ai" },
+        content: {
+          text_content: cached.text_content || cached.content,
+          source: "ai",
+        },
         materials,
         cached: true,
         learningState,
