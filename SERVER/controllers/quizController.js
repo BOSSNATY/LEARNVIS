@@ -188,7 +188,7 @@ exports.startAttempt = async (req, res) => {
     if (!quiz) return res.status(404).json({ error: "Quiz not found" });
     // 🛑 Prevent duplicate attempts starting from duplicate frontend requests
     const [existingAttempts] = await pool.execute(
-      "SELECT id, round_number FROM quiz_attempts WHERE user_id = ? AND quiz_id = ? AND completed_at IS NULL ORDER BY id DESC LIMIT 1",
+      "SELECT id, round_number FROM quiz_attempts WHERE user_id = ? AND quiz_id = ? AND finished_at IS NULL ORDER BY id DESC LIMIT 1",
       [userId, req.params.quizId],
     );
 
@@ -210,6 +210,7 @@ exports.startAttempt = async (req, res) => {
     );
     res.json({ attemptId: result.insertId, round: roundNumber });
   } catch (err) {
+    console.error("CRASH IN START ATTEMPT:", err.message); // <-- ADDED LOG
     res.status(500).json({ error: err.message });
   }
 };
@@ -267,7 +268,7 @@ exports.submitQuiz = async (req, res) => {
     const score = Math.round((correctCount / answers.length) * 100);
     const passed = score >= 96 ? 1 : 0;
     await pool.execute(
-      "UPDATE quiz_attempts SET score = ?, passed = ?, completed_at = NOW() WHERE id = ?",
+      "UPDATE quiz_attempts SET score = ?, passed = ?, finished_at = NOW() WHERE id = ?",
       [score, passed, attemptId],
     );
 
