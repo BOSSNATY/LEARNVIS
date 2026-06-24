@@ -152,9 +152,7 @@ const Quiz = () => {
         }
       }
       if (quizType === "mandatory" && taskId) {
-        if (finalScore === 100) {
-          await api.completeTask(taskId, { understanding_score: finalScore });
-        }
+        await api.completeTask(taskId, { understanding_score: finalScore });
       }
       setShowResult(true);
     }
