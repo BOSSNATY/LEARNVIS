@@ -28,6 +28,7 @@ const Quiz = () => {
   const [serverResult, setServerResult] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [error, setError] = useState(null);
+  const [isReviewMode, setIsReviewMode] = useState(false);
 
   const topic = getTopicById(topicId);
   const location = useLocation();
@@ -108,6 +109,7 @@ const Quiz = () => {
   const progress = ((currentQuestion + 1) / questions.length) * 100;
 
   const handleAnswerSelect = (answerIndex) => {
+    if (isReviewMode) return;
     setSelectedAnswer(answerIndex);
   };
 
@@ -298,25 +300,40 @@ const Quiz = () => {
               </div>
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {quizType === "mandatory" ? (
-                score === 100 ? (
+                <>
+                  {score === 100 ? (
+                    <button
+                      onClick={() => navigate("/student/dashboard")}
+                      className="flex-1 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-semibold transition-all flex justify-center items-center gap-2 shadow-lg shadow-green-500/20"
+                    >
+                      <CheckCircle size={20} /> Mastered! Unlock Next Topic
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        navigate(
+                          `/student/revision/${topicId}?taskId=${taskId}`,
+                        )
+                      }
+                      className="flex-1 py-3 bg-orange-600 hover:bg-orange-500 rounded-xl font-semibold transition-all shadow-lg shadow-orange-500/20"
+                    >
+                      Start AI Targeted Revision
+                    </button>
+                  )}
                   <button
-                    onClick={() => navigate("/student/dashboard")}
-                    className="flex-1 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-semibold transition-all flex justify-center items-center gap-2 shadow-lg shadow-green-500/20"
+                    onClick={() => {
+                      setIsReviewMode(true);
+                      setCurrentQuestion(0);
+                      setSelectedAnswer(answers[0] ?? null);
+                      setShowResult(false);
+                    }}
+                    className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl font-semibold transition-all border border-white/10"
                   >
-                    <CheckCircle size={20} /> Mastered! Unlock Next Topic
+                    🔍 Review Answers
                   </button>
-                ) : (
-                  <button
-                    onClick={() =>
-                      navigate(`/student/revision/${topicId}?taskId=${taskId}`)
-                    }
-                    className="flex-1 py-3 bg-orange-600 hover:bg-orange-500 rounded-xl font-semibold transition-all shadow-lg shadow-orange-500/20"
-                  >
-                    Start AI Targeted Revision
-                  </button>
-                )
+                </>
               ) : (
                 <>
                   <button
@@ -324,6 +341,17 @@ const Quiz = () => {
                     className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all"
                   >
                     View Results
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsReviewMode(true);
+                      setCurrentQuestion(0);
+                      setSelectedAnswer(answers[0] ?? null);
+                      setShowResult(false);
+                    }}
+                    className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl font-semibold transition-all border border-white/10"
+                  >
+                    🔍 Review Answers
                   </button>
                   <button
                     onClick={() => navigate(`/student/learn/${topicId}`)}
@@ -345,11 +373,18 @@ const Quiz = () => {
       <div className="max-w-3xl mx-auto">
         {/* Back Button */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (isReviewMode) {
+              setShowResult(true);
+              setIsReviewMode(false);
+            } else {
+              navigate(-1);
+            }
+          }}
           className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
         >
           <ArrowLeft size={18} />
-          <span>Exit Quiz</span>
+          <span>{isReviewMode ? "Back to Results" : "Exit Quiz"}</span>
         </button>
 
         {/* Quiz Header */}
@@ -403,22 +438,45 @@ const Quiz = () => {
                   key={index}
                   onClick={() => handleAnswerSelect(index)}
                   className={`w-full p-4 rounded-xl border text-left transition-all ${
-                    selectedAnswer === index
-                      ? "bg-blue-600/20 border-blue-500"
-                      : "bg-white/5 border-white/10 hover:bg-white/10"
+                    isReviewMode
+                      ? index === question.correctAnswer
+                        ? "bg-green-600/20 border-green-500"
+                        : selectedAnswer === index
+                          ? "bg-red-600/20 border-red-500"
+                          : "bg-white/5 border-white/10"
+                      : selectedAnswer === index
+                        ? "bg-blue-600/20 border-blue-500"
+                        : "bg-white/5 border-white/10 hover:bg-white/10"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold ${
-                        selectedAnswer === index
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-700 text-gray-300"
+                        isReviewMode
+                          ? index === question.correctAnswer
+                            ? "bg-green-500 text-white"
+                            : selectedAnswer === index
+                              ? "bg-red-500 text-white"
+                              : "bg-gray-700 text-gray-300"
+                          : selectedAnswer === index
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-700 text-gray-300"
                       }`}
                     >
                       {String.fromCharCode(65 + index)}
                     </div>
                     <span className="text-gray-200">{option}</span>
+                    {isReviewMode && index === question.correctAnswer && (
+                      <CheckCircle
+                        className="text-green-400 ml-auto"
+                        size={20}
+                      />
+                    )}
+                    {isReviewMode &&
+                      selectedAnswer === index &&
+                      index !== question.correctAnswer && (
+                        <X className="text-red-400 ml-auto" size={20} />
+                      )}
                   </div>
                 </button>
               ))}
@@ -437,7 +495,7 @@ const Quiz = () => {
               onClick={() => {
                 if (currentQuestion > 0) {
                   let updatedAnswers = answers;
-                  if (selectedAnswer !== null) {
+                  if (!isReviewMode && selectedAnswer !== null) {
                     updatedAnswers = {
                       ...answers,
                       [currentQuestion]: selectedAnswer,
@@ -457,19 +515,32 @@ const Quiz = () => {
             </button>
 
             <button
-              onClick={() => handleNext(false)}
-              disabled={selectedAnswer === null}
+              onClick={() => {
+                if (isReviewMode) {
+                  if (currentQuestion < questions.length - 1) {
+                    setCurrentQuestion(currentQuestion + 1);
+                    setSelectedAnswer(answers[currentQuestion + 1] ?? null);
+                  } else {
+                    setShowResult(true);
+                    setIsReviewMode(false);
+                  }
+                } else {
+                  handleNext(false);
+                }
+              }}
+              disabled={!isReviewMode && selectedAnswer === null}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {currentQuestion === questions.length - 1
-                ? "Finish Quiz"
+                ? isReviewMode
+                  ? "Back to Results"
+                  : "Finish Quiz"
                 : "Next Question"}
               <ChevronRight size={18} />
             </button>
           </div>
         </div>
 
-        {/* Question Navigator */}
         {/* Question Navigator */}
         <div className="mt-6 bg-[#111827]/40 backdrop-blur-xl border border-white/5 rounded-2xl p-4">
           <div className="flex items-center gap-2 flex-wrap">
@@ -478,7 +549,7 @@ const Quiz = () => {
                 key={index}
                 onClick={() => {
                   let updatedAnswers = answers;
-                  if (selectedAnswer !== null) {
+                  if (!isReviewMode && selectedAnswer !== null) {
                     updatedAnswers = {
                       ...answers,
                       [currentQuestion]: selectedAnswer,
