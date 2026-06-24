@@ -236,26 +236,29 @@ exports.submitQuiz = async (req, res) => {
 
     let correctCount = 0;
     for (const a of answers) {
-      const correctAnswer = correctMap[a.questionId];
-      const isCorrect = a.selectedOption === correctAnswer;
+      const correctAnswer = correctMap[a.questionId] || "Unknown";
+      const userSelected = a.selectedOption || "No Answer";
+      const isCorrect = userSelected === correctAnswer;
       if (isCorrect) correctCount++;
+
       await pool.execute(
         `INSERT INTO quiz_answers (attempt_id, question_id, selected_option, is_correct, concept_tag)
          VALUES (?, ?, ?, ?, ?)`,
         [
           attemptId,
           a.questionId,
-          a.selectedOption,
+          userSelected,
           isCorrect ? 1 : 0,
           a.conceptTag || "general",
         ],
       );
+
       if (!isCorrect) {
         await pool.execute(
           `INSERT INTO mistakes (user_id, topic_id, question_id, user_answer, correct_answer)
            VALUES (?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE correct_answer = VALUES(correct_answer)`,
-          [userId, topicId, a.questionId, a.selectedOption, correctAnswer],
+           ON DUPLICATE KEY UPDATE user_answer = VALUES(user_answer), correct_answer = VALUES(correct_answer)`,
+          [userId, topicId, a.questionId, userSelected, correctAnswer],
         );
         await updateMistakeProfile(userId, topicId, a.conceptTag || "general");
       }
@@ -297,6 +300,7 @@ exports.submitQuiz = async (req, res) => {
       mastered: score >= 96,
     });
   } catch (err) {
+    console.log("Error submitting quiz:", err);
     res.status(500).json({ error: err.message });
   }
 };
