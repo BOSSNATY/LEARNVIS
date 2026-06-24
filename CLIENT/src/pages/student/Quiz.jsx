@@ -135,7 +135,7 @@ const Quiz = () => {
         try {
           const payload = questions.map((q, index) => ({
             questionId: q.id,
-            selectedOption: q.options?.[updatedAnswers[index]],
+            selectedOption: q.options?.[updatedAnswers[index]] || "No Answer",
             conceptTag: q.type || "general",
           }));
           const res = await api.submitQuiz(serverQuizId, {
