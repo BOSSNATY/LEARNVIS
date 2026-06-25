@@ -75,9 +75,9 @@ exports.completeTask = async (req, res) => {
     // 2. Mark this specific task as completed
     await pool.execute(
       `UPDATE study_tasks
-       SET status = 'completed', understanding_score = ?, progress_percent = 100
+       SET status = 'completed', understanding_score = ?, progress_percent = 100 , time_spent = ?
        WHERE id = ?`,
-      [understanding_score || null, taskId],
+      [understanding_score || null, time_spent_minutes || null, taskId],
     );
     // 3. 🧠 DYNAMIC CALCULATION: Look at ALL tasks for this topic in the current plan
     const [allTopicTasks] = await pool.execute(
