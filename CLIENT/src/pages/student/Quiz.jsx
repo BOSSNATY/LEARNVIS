@@ -2,6 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
 import StudentLayout from "../../components/StudentLayout";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import remarkGfm from "remark-gfm";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
+
 import {
   ArrowLeft,
   Clock,
@@ -29,6 +35,8 @@ const Quiz = () => {
   const [timeLeft, setTimeLeft] = useState(null);
   const [error, setError] = useState(null);
   const [isReviewMode, setIsReviewMode] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [startTime, setStartTime] = useState(null);
 
   const topic = getTopicById(topicId);
   const location = useLocation();
@@ -74,6 +82,10 @@ const Quiz = () => {
         setQuestions([]);
       });
   }, [topicId]);
+
+  useEffect(() => {
+    if (!startTime) setStartTime(Date.now());
+  }, []);
 
   useEffect(() => {
     if (timeLeft === null || showResult) return;
@@ -134,6 +146,7 @@ const Quiz = () => {
       finalScore = Math.round((correct / questions.length) * 100);
 
       if (serverQuizId) {
+        setIsSubmitting(true);
         try {
           const payload = questions.map((q, index) => ({
             questionId: q.id,
@@ -149,10 +162,19 @@ const Quiz = () => {
           finalScore = res?.score ?? finalScore;
         } catch (_error) {
           setServerResult(null);
+        } finally {
+          setIsSubmitting(false);
         }
       }
       if (quizType === "mandatory" && taskId) {
-        await api.completeTask(taskId, { understanding_score: finalScore });
+        const timeSpent = Math.max(
+          1,
+          Math.ceil((Date.now() - startTime) / 60000),
+        );
+        await api.completeTask(taskId, {
+          time_spent_minutes: timeSpent,
+          understanding_score: finalScore,
+        });
       }
       setShowResult(true);
     }
@@ -426,13 +448,20 @@ const Quiz = () => {
           </div>
 
           {/* Question */}
-          <h2 className="text-2xl font-semibold mb-8">{question.question}</h2>
+          <div className="text-2xl font-semibold mb-8 prose prose-invert max-w-none">
+            <ReactMarkdown
+              remarkPlugins={[remarkMath, remarkGfm]}
+              rehypePlugins={[rehypeKatex]}
+            >
+              {question.question}
+            </ReactMarkdown>
+          </div>
 
           {/* Answer Options */}
           {question.options ? (
             <div className="space-y-3">
               {question.options.map((option, index) => (
-                <button
+                <div
                   key={index}
                   onClick={() => handleAnswerSelect(index)}
                   className={`w-full p-4 rounded-xl border text-left transition-all ${
@@ -463,7 +492,14 @@ const Quiz = () => {
                     >
                       {String.fromCharCode(65 + index)}
                     </div>
-                    <span className="text-gray-200">{option}</span>
+                    <div className="text-gray-200 prose prose-invert max-w-none flex-1">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkMath, remarkGfm]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
+                        {option}
+                      </ReactMarkdown>
+                    </div>
                     {isReviewMode && index === question.correctAnswer && (
                       <CheckCircle
                         className="text-green-400 ml-auto"
@@ -476,7 +512,7 @@ const Quiz = () => {
                         <X className="text-red-400 ml-auto" size={20} />
                       )}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           ) : (
@@ -486,7 +522,6 @@ const Quiz = () => {
             />
           )}
 
-          {/* Action Buttons */}
           {/* Action Buttons */}
           <div className="flex justify-between mt-8">
             <button
@@ -529,11 +564,13 @@ const Quiz = () => {
               disabled={!isReviewMode && selectedAnswer === null}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              {currentQuestion === questions.length - 1
-                ? isReviewMode
-                  ? "Back to Results"
-                  : "Finish Quiz"
-                : "Next Question"}
+              {isSubmitting
+                ? "Submitting..."
+                : currentQuestion === questions.length - 1
+                  ? isReviewMode
+                    ? "Back to Results"
+                    : "Finish Quiz"
+                  : "Next Question"}
               <ChevronRight size={18} />
             </button>
           </div>
