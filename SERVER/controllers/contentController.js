@@ -63,7 +63,7 @@ exports.getContent = async (req, res) => {
     // If no active session, check if the task is already completed (review mode)
     if (!isValidAccess && taskId) {
       const [[completedTask]] = await pool.execute(
-        `SELECT id FROM study_tasks st
+        `SELECT st.id FROM study_tasks st
          JOIN study_plans sp ON st.plan_id = sp.id
          WHERE st.id = ? AND sp.user_id = ? AND st.status = 'completed'`,
         [taskId, userId],
