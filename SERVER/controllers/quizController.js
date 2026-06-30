@@ -398,3 +398,40 @@ exports.generateRemasteredQuiz = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+exports.getLatestAttempt = async (req, res) => {
+  const userId = req.user.id || req.user.userId;
+  const { topicId } = req.params;
+
+  try {
+    // 1. Get the latest finished attempt
+    const [[attempt]] = await pool.execute(
+      `SELECT qa.*, q.id as quiz_id FROM quiz_attempts qa
+       JOIN quizzes q ON qa.quiz_id = q.id
+       WHERE qa.user_id = ? AND q.topic_id = ? AND qa.finished_at IS NOT NULL
+       ORDER BY qa.id DESC LIMIT 1`,
+      [userId, topicId],
+    );
+
+    if (!attempt)
+      return res.status(404).json({ error: "No past attempt found" });
+
+    // 2. Get the quiz questions
+    const [questions] = await pool.execute(
+      `SELECT q.id, q.question_text, q.cognitive_category, 
+        (SELECT JSON_ARRAYAGG(JSON_OBJECT('id', id, 'option_text', option_text, 'is_correct', is_correct)) 
+         FROM options o WHERE o.question_id = q.id) as options
+       FROM questions q WHERE quiz_id = ?`,
+      [attempt.quiz_id],
+    );
+
+    // 3. Get the user's answers for that attempt
+    const [answers] = await pool.execute(
+      `SELECT question_id, user_answer FROM quiz_answers WHERE attempt_id = ?`,
+      [attempt.id],
+    );
+
+    res.json({ attempt, questions, answers });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

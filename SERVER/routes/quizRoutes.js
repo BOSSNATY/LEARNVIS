@@ -16,5 +16,10 @@ router.post(
   authMiddleware,
   quizController.generateRemasteredQuiz,
 );
+router.get(
+  "/topic/:topicId/latest",
+  authMiddleware,
+  quizController.getLatestAttempt,
+);
 
 module.exports = router;
