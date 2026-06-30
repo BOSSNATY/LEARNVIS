@@ -432,13 +432,24 @@ const LearnPage = () => {
               <p className="text-gray-400 text-sm mb-4">
                 Take a quiz to reinforce what you've learned
               </p>
-              <button
-                onClick={() => navigate(`/student/quiz/${topicId}`)}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
-              >
-                Start Quiz
-                <ChevronRight size={18} />
-              </button>
+              {hasAttempt ? (
+                <button
+                  onClick={() =>
+                    navigate(`/student/quiz/${topicId}?isReview=true`)
+                  }
+                  className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 border border-white/10"
+                >
+                  Review Past Quiz
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate(`/student/quiz/${topicId}`)}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                >
+                  Start Quiz
+                  <ChevronRight size={18} />
+                </button>
+              )}
             </div>
 
             {/* Progress */}

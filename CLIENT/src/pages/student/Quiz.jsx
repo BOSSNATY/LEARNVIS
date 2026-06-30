@@ -43,9 +43,53 @@ const Quiz = () => {
   const searchParams = new URLSearchParams(location.search);
   const taskId = searchParams.get("taskId");
   const quizType = searchParams.get("type") || "practice";
+  const isPastReview = searchParams.get("isReview") === "true";
 
   useEffect(() => {
     if (!topicId) return;
+    if (isPastReview) {
+      api
+        .getLatestAttempt(topicId)
+        .then((data) => {
+          // Format questions
+          const formattedQuestions = data.questions.map((q) => ({
+            id: q.id,
+            question: q.question_text,
+            type:
+              q.cognitive_category === "calculation"
+                ? "application"
+                : q.cognitive_category,
+            options: q.options.map((opt) => opt.option_text),
+            optionIds: q.options.map((opt) => opt.id),
+            correctAnswer: q.options.findIndex((opt) => opt.is_correct),
+          }));
+
+          // Map past answers
+          const mappedAnswers = {};
+          data.answers.forEach((ans) => {
+            const qIndex = formattedQuestions.findIndex(
+              (q) => q.id === ans.question_id,
+            );
+            const optionIndex = formattedQuestions[qIndex].options.findIndex(
+              (opt) => opt === ans.user_answer,
+            );
+            if (qIndex !== -1 && optionIndex !== -1) {
+              mappedAnswers[qIndex] = optionIndex;
+            }
+          });
+          setQuestions(formattedQuestions);
+          setAnswers(mappedAnswers);
+          setServerResult({ score: data.attempt.score });
+          setIsReviewMode(true);
+          setShowResult(true); // Jump straight to results screen!
+        })
+        .catch((err) => {
+          console.error(err);
+          setError("Failed to load past quiz.");
+        });
+      return;
+    }
+
     api
       .generateQuiz({ topicId, mode: quizType })
       .then(async (generated) => {
