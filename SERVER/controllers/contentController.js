@@ -77,14 +77,25 @@ exports.getContent = async (req, res) => {
       });
     }
 
-    // Check if the user has already attempted the quiz for this topic
-    const [[hasAttemptRow]] = await pool.execute(
-      `SELECT qa.id FROM quiz_attempts qa
-       JOIN quizzes q ON qa.quiz_id = q.id
-       WHERE qa.user_id = ? AND q.topic_id = ? LIMIT 1`,
-      [userId, topicId],
-    );
-    const hasAttempt = !!hasAttemptRow;
+    let hasAttempt = false;
+
+    if (taskId) {
+      // If we are in a task, they only have an attempt if the task is ALREADY completed!
+      const [[taskRow]] = await pool.execute(
+        "SELECT status FROM study_tasks WHERE id = ?",
+        [taskId],
+      );
+      hasAttempt = taskRow && taskRow.status === "completed";
+    } else {
+      // If browsing freely, check if they've ever taken a quiz for this topic
+      const [[hasAttemptRow]] = await pool.execute(
+        `SELECT qa.id FROM quiz_attempts qa
+         JOIN quizzes q ON qa.quiz_id = q.id
+         WHERE qa.user_id = ? AND q.topic_id = ? LIMIT 1`,
+        [userId, topicId],
+      );
+      hasAttempt = !!hasAttemptRow;
+    }
 
     const [[cached]] = await pool.execute(
       "SELECT * FROM content WHERE topic_id = ? AND task_id = ? ORDER BY id DESC LIMIT 1",
@@ -137,6 +148,7 @@ exports.getContent = async (req, res) => {
       learningState,
       materials,
       cached: false,
+      hasAttempt,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

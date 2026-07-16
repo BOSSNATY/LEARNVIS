@@ -179,139 +179,118 @@ exports.getQuiz = async (req, res) => {
   }
 };
 
-exports.startAttempt = async (req, res) => {
-  const userId = req.user.id;
-  try {
-    const [[quiz]] = await pool.execute("SELECT id FROM quizzes WHERE id = ?", [
-      req.params.quizId,
-    ]);
-    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
-    // 🛑 Prevent duplicate attempts starting from duplicate frontend requests
-    const [existingAttempts] = await pool.execute(
-      "SELECT id, round_number FROM quiz_attempts WHERE user_id = ? AND quiz_id = ? AND finished_at IS NULL ORDER BY id DESC LIMIT 1",
-      [userId, req.params.quizId],
-    );
+exports.submitQuiz = async (req, res) => {
+  const userId = req.user.id || req.user.userId;
+  const { answers, topicId, planId } = req.body;
 
-    if (existingAttempts.length > 0) {
-      return res.json({
-        attemptId: existingAttempts[0].id,
-        round: existingAttempts[0].round_number,
-      });
+  if (!Array.isArray(answers)) {
+    return res.status(400).json({ error: "answers[] is required" });
+  }
+
+  try {
+    let correctCount = 0;
+
+    // 1. Check all answers and calculate score FIRST
+    for (const a of answers) {
+      const [[correctRow]] = await pool.execute(
+        "SELECT option_text FROM question_options WHERE question_id = ? AND is_correct = 1 LIMIT 1",
+        [a.questionId],
+      );
+      const correctAnswer = correctRow ? correctRow.option_text : null;
+      const userSelected = a.selectedOption;
+
+      a.isCorrect = userSelected && userSelected === correctAnswer ? 1 : 0;
+      a.correctAnswer = correctAnswer;
+
+      if (a.isCorrect) correctCount++;
     }
 
-    const [countRes] = await pool.execute(
+    const score = Math.round((correctCount / answers.length) * 100);
+    const passed = score >= 96 ? 1 : 0;
+
+    // 2. Figure out the round number
+    const [[countRes]] = await pool.execute(
       "SELECT COUNT(*) AS count FROM quiz_attempts WHERE user_id = ? AND quiz_id = ?",
       [userId, req.params.quizId],
     );
-    const roundNumber = countRes[0].count + 1;
-    const [result] = await pool.execute(
-      "INSERT INTO quiz_attempts (user_id, quiz_id, round_number, score, passed) VALUES (?, ?, ?, 0, 0)",
-      [userId, req.params.quizId, roundNumber],
+    const roundNumber = countRes.count + 1;
+
+    // 3. Insert exactly ONE row into quiz_attempts with the final score
+    const [insertResult] = await pool.execute(
+      "INSERT INTO quiz_attempts (user_id, quiz_id, round_number, score, passed, started_at, finished_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+      [userId, req.params.quizId, roundNumber, score, passed],
     );
-    res.json({ attemptId: result.insertId, round: roundNumber });
-  } catch (err) {
-    console.error("CRASH IN START ATTEMPT:", err.message); // <-- ADDED LOG
-    res.status(500).json({ error: err.message });
-  }
-};
+    const newAttemptId = insertResult.insertId;
 
-exports.submitQuiz = async (req, res) => {
-  const userId = req.user.id;
-  const { attemptId, answers, topicId, planId } = req.body;
-  if (!attemptId || !Array.isArray(answers))
-    return res
-      .status(400)
-      .json({ error: "attemptId and answers[] are required" });
-
-  try {
-    const questionIds = answers.map((a) => a.questionId);
-    if (!questionIds.length)
-      return res.status(400).json({ error: "No answers provided" });
-    const [correctRows] = await pool.query(
-      `SELECT question_id, option_text FROM question_options WHERE question_id IN (?) AND is_correct = 1`,
-      [questionIds],
-    );
-    const correctMap = {};
-    for (const row of correctRows)
-      correctMap[row.question_id] = row.option_text;
-
-    let correctCount = 0;
+    // 4. Save the individual quiz answers and mistakes using our new attempt ID
     for (const a of answers) {
-      const correctAnswer = correctMap[a.questionId] || "Unknown";
-      const userSelected = a.selectedOption || "No Answer";
-      const isCorrect = userSelected === correctAnswer;
-      if (isCorrect) correctCount++;
+      if (a.selectedOption) {
+        await pool.execute(
+          `INSERT INTO quiz_answers (attempt_id, question_id, selected_option, is_correct)
+           VALUES (?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE selected_option = VALUES(selected_option), is_correct = VALUES(is_correct)`,
+          [newAttemptId, a.questionId, a.selectedOption, a.isCorrect],
+        );
+      }
 
-      await pool.execute(
-        `INSERT INTO quiz_answers (attempt_id, question_id, selected_option, is_correct, concept_tag)
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          attemptId,
-          a.questionId,
-          userSelected,
-          isCorrect ? 1 : 0,
-          a.conceptTag || "general",
-        ],
-      );
-
-      if (!isCorrect) {
+      if (!a.isCorrect) {
         await pool.execute(
           `INSERT INTO mistakes (user_id, topic_id, question_id, user_answer, correct_answer)
            VALUES (?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE user_answer = VALUES(user_answer), correct_answer = VALUES(correct_answer)`,
-          [userId, topicId, a.questionId, userSelected, correctAnswer],
+          [userId, topicId, a.questionId, a.selectedOption, a.correctAnswer],
         );
         await updateMistakeProfile(userId, topicId, a.conceptTag || "general");
       }
     }
 
-    const score = Math.round((correctCount / answers.length) * 100);
-    const passed = score >= 96 ? 1 : 0;
-    await pool.execute(
-      "UPDATE quiz_attempts SET score = ?, passed = ?, finished_at = NOW() WHERE id = ?",
-      [score, passed, attemptId],
-    );
-
+    // 5. Update topic mastery and study tasks (your existing logic)
     const [[quizRow]] = await pool.execute(
       "SELECT topic_id FROM quizzes WHERE id = ?",
       [req.params.quizId],
     );
+
     if (quizRow) {
       const status = score >= 96 ? "mastered" : "practicing";
 
-      // Fetch subject_id to ensure we can create a record if it doesn't exist
       const [[topicRow]] = await pool.execute(
         "SELECT subject_id FROM topics WHERE id = ?",
         [quizRow.topic_id],
       );
-      const subjectId = topicRow?.subject_id || null;
+      const subjectId = topicRow ? topicRow.subject_id : null;
 
+      if (subjectId) {
+        await pool.execute(
+          `INSERT INTO learning_state (user_id, subject_id, topic_id, status, progress_percent, mastery_score, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, NOW())
+           ON DUPLICATE KEY UPDATE status = VALUES(status), mastery_score = VALUES(mastery_score), updated_at = NOW()`,
+          [
+            userId,
+            subjectId,
+            quizRow.topic_id,
+            status,
+            score >= 96 ? 100 : score,
+            score,
+          ],
+        );
+      }
+    }
+
+    if (planId && passed) {
       await pool.execute(
-        `INSERT INTO learning_state (user_id, subject_id, topic_id, mastery_score, status, updated_at)
-         VALUES (?, ?, ?, ?, ?, NOW())
-         ON DUPLICATE KEY UPDATE mastery_score = VALUES(mastery_score), status = VALUES(status), updated_at = NOW()`,
-        [userId, subjectId, quizRow.topic_id, score, status],
+        "UPDATE study_tasks SET status = 'completed' WHERE plan_id = ? AND status = 'pending'",
+        [planId],
       );
     }
-    if (topicId)
-      await generateMicroLessons(userId, topicId).catch((e) =>
-        console.error("Micro-lesson generation failed:", e.message),
-      );
-    if (planId)
-      await updateStudyPlanFromMistakes(planId, userId).catch((e) =>
-        console.error("Plan updater failed:", e.message),
-      );
 
     res.json({
-      message: "Quiz submitted successfully",
+      success: true,
       score,
-      passed: Boolean(passed),
-      correct: correctCount,
-      total: answers.length,
-      mastered: score >= 96,
+      passed: !!passed,
+      attemptId: newAttemptId,
     });
   } catch (err) {
-    console.log("Error in  submitQuiz:", err);
+    console.error("CRASH IN SUBMIT QUIZ:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -419,14 +398,14 @@ exports.getLatestAttempt = async (req, res) => {
     const [questions] = await pool.execute(
       `SELECT q.id, q.question_text, q.cognitive_category, 
         (SELECT JSON_ARRAYAGG(JSON_OBJECT('id', id, 'option_text', option_text, 'is_correct', is_correct)) 
-         FROM options o WHERE o.question_id = q.id) as options
+         FROM question_options o WHERE o.question_id = q.id) as options
        FROM questions q WHERE quiz_id = ?`,
       [attempt.quiz_id],
     );
 
     // 3. Get the user's answers for that attempt
     const [answers] = await pool.execute(
-      `SELECT question_id, user_answer FROM quiz_answers WHERE attempt_id = ?`,
+      `SELECT question_id, selected_option FROM quiz_answers WHERE attempt_id = ?`,
       [attempt.id],
     );
 
