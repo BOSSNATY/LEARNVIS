@@ -429,7 +429,12 @@ const LearnPage = () => {
                     <span className="w-5 h-5 bg-blue-600/20 rounded-full flex items-center justify-center flex-shrink-0 text-blue-400 text-xs mt-0.5">
                       {index + 1}
                     </span>
-                    {point}
+                    <ReactMarkdown
+                      remarkPlugins={[remarkMath, remarkGfm]}
+                      rehypePlugins={[rehypeKatex]}
+                    >
+                      {point}
+                    </ReactMarkdown>
                   </li>
                 ))}
               </ul>

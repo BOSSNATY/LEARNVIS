@@ -178,41 +178,87 @@ const Dashboard = () => {
               </h2>
               {dashboard?.todayTasks?.length > 0 ? (
                 <div className="space-y-3">
-                  {dashboard.todayTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="bg-[#1f2937] p-5 rounded-2xl flex items-center justify-between border border-white/5 hover:border-blue-500/30 transition-all"
-                    >
-                      <div>
-                        <h3 className="font-semibold text-lg">
-                          {task.topic_title}
-                        </h3>
-                        <p className="text-sm text-gray-400 capitalize">
-                          {new Date(task.scheduled_date).toLocaleDateString(
-                            undefined,
-                            {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            },
-                          )}{" "}
-                          • {task.session_type} Session
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => sessionChecker(task)}
-                        className={`px-5 py-2.5 rounded-xl font-medium transition-colors ${
-                          task.status === "completed"
-                            ? "bg-gray-600 hover:bg-gray-500 text-white"
-                            : "bg-blue-600 hover:bg-blue-500 text-white"
-                        }`}
-                      >
-                        {task.status === "completed"
-                          ? "Completed"
-                          : "Start Learning"}
-                      </button>
-                    </div>
-                  ))}
+                  {(() => {
+                    let foundPending = false;
+                    const topicCounts = {};
+                    const romanNumerals = [
+                      "I",
+                      "II",
+                      "III",
+                      "IV",
+                      "V",
+                      "VI",
+                      "VII",
+                      "VIII",
+                      "IX",
+                      "X",
+                    ];
+
+                    return dashboard.todayTasks.map((task) => {
+                      const isCompleted = task.status === "completed";
+                      const isLocked = !isCompleted && foundPending;
+                      if (!isCompleted) foundPending = true;
+
+                      // Calculate Part I, Part II dynamically
+                      topicCounts[task.topic_id] =
+                        (topicCounts[task.topic_id] || 0) + 1;
+                      const count = topicCounts[task.topic_id];
+                      const partName = `Part ${romanNumerals[count - 1] || count}`;
+
+                      let buttonText = isCompleted
+                        ? "Completed"
+                        : "Start Learning";
+                      if (
+                        !isCompleted &&
+                        task.learning_status === "practicing"
+                      ) {
+                        buttonText = "Start Revision";
+                      }
+                      if (isLocked) buttonText = "Locked";
+
+                      let buttonColor = isCompleted
+                        ? "bg-gray-600 hover:bg-gray-500 text-white"
+                        : "bg-blue-600 hover:bg-blue-500 text-white";
+                      if (isLocked) {
+                        buttonColor =
+                          "bg-gray-800 text-gray-500 cursor-not-allowed border border-white/5";
+                      } else if (buttonText === "Start Revision") {
+                        buttonColor =
+                          "bg-orange-600 hover:bg-orange-500 text-white";
+                      }
+
+                      return (
+                        <div
+                          key={task.id}
+                          className="bg-[#1f2937] p-5 rounded-2xl flex items-center justify-between border border-white/5 hover:border-blue-500/30 transition-all"
+                        >
+                          <div>
+                            <h3 className="font-semibold text-lg">
+                              {task.topic_title} - {partName}
+                            </h3>
+                            <p className="text-sm text-gray-400 capitalize">
+                              {new Date(task.scheduled_date).toLocaleDateString(
+                                undefined,
+                                {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                },
+                              )}{" "}
+                              • {task.session_type} Session
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => !isLocked && sessionChecker(task)}
+                            disabled={isLocked}
+                            className={`px-5 py-2.5 rounded-xl font-medium transition-colors ${buttonColor}`}
+                          >
+                            {buttonText}
+                          </button>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               ) : (
                 <div className="bg-[#111827]/40 p-6 rounded-2xl border border-white/5 text-center text-gray-400">
