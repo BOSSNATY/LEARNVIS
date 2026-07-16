@@ -53,7 +53,7 @@ const LearnPage = () => {
         await api.endSession({ sessionId: sessionId, focusScore: 80 });
       navigate(`/student/quiz/${topicId}?taskId=${taskId}&type=mandatory`);
     } catch (err) {
-      alert("Failed towrap up sessoin. Please try again.");
+      alert("Failed to wrap up sessoin. Please try again.");
       setIsCompleting(false);
     }
   };
@@ -169,7 +169,7 @@ const LearnPage = () => {
           text: parsedText || fallbackContent.text,
           keyPoints: parsedKeyPoints,
         });
-        setHasAttempt(!!data.hasAttempt);
+        setHasAttempt(data.hasAttempt);
 
         setStats({
           progress: data.learningState?.progress_percent || 0,
@@ -363,8 +363,17 @@ const LearnPage = () => {
                 <Share2 size={18} />
                 <span>Share</span>
               </button>
+              {console.log(
+                "taskId",
+                taskId,
+                "sessionId",
+                sessionId,
+                "isReview",
+                isReview,
+                "hasattempt",
+                hasAttempt,
+              )}
               {(taskId || sessionId) &&
-                !isReview &&
                 (hasAttempt ? (
                   <div className="ml-auto px-6 py-3 bg-white/5 border border-white/10 text-gray-400 rounded-xl font-bold flex items-center gap-2">
                     <CheckCircle size={18} className="text-green-400" />
@@ -434,16 +443,18 @@ const LearnPage = () => {
               </p>
               {hasAttempt ? (
                 <button
-                  onClick={() =>
-                    navigate(`/student/quiz/${topicId}?isReview=true`)
-                  }
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams);
+                    params.set("isReview", "true");
+                    navigate(`/student/quiz/${topicId}?${params.toString()}`);
+                  }}
                   className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 border border-white/10"
                 >
                   Review Past Quiz
                 </button>
               ) : (
                 <button
-                  onClick={() => navigate(`/student/quiz/${topicId}`)}
+                  onClick={handleCompleteTask}
                   className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
                 >
                   Start Quiz

@@ -71,7 +71,7 @@ const Quiz = () => {
               (q) => q.id === ans.question_id,
             );
             const optionIndex = formattedQuestions[qIndex].options.findIndex(
-              (opt) => opt === ans.user_answer,
+              (opt) => opt === ans.selected_option,
             );
             if (qIndex !== -1 && optionIndex !== -1) {
               mappedAnswers[qIndex] = optionIndex;
@@ -99,11 +99,7 @@ const Quiz = () => {
         if (generated.timeLimitSeconds) {
           setTimeLeft(generated.timeLimitSeconds);
         }
-        const [quizQuestionsFromApi, attempt] = await Promise.all([
-          api.quiz(quizId),
-          api.startAttempt(quizId).catch(() => null),
-        ]);
-        if (attempt?.attemptId) setAttemptId(attempt.attemptId);
+        const quizQuestionsFromApi = await api.quiz(quizId);
         setQuestions(
           quizQuestionsFromApi.map((question) => ({
             id: question.id || question.question_id,
@@ -418,7 +414,12 @@ const Quiz = () => {
                     🔍 Review Answers
                   </button>
                   <button
-                    onClick={() => navigate(`/student/learn/${topicId}`)}
+                    onClick={() => {
+                      const params = new URLSearchParams(location.search);
+                      navigate(
+                        `/student/learn/${topicId}?${params.toString()}&isReview=true`,
+                      );
+                    }}
                     className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl font-semibold transition-all"
                   >
                     Review Topic
