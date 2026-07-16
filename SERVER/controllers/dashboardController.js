@@ -4,22 +4,21 @@ exports.getDashboard = async (req, res) => {
   const userId = req.user.userId;
 
   try {
-
     const [userSubjects] = await pool.execute(
-      `SELECT s.id, s.name
+      `SELECT s.id, s.name, COUNT(t.id) as topicsCount
        FROM user_subjects us
        JOIN subjects s ON us.subject_id = s.id
-       WHERE us.user_id = ?`,
+       LEFT JOIN topics t ON t.subject_id = s.id
+       WHERE us.user_id = ?
+       GROUP BY s.id, s.name`,
       [userId],
     );
 
     const subjectsCount = userSubjects.length;
 
-    
     const [allSubjects] = await pool.execute(
       `SELECT id, name, description FROM subjects`,
     );
-
 
     const [quizStats] = await pool.execute(
       `SELECT 
@@ -32,7 +31,6 @@ exports.getDashboard = async (req, res) => {
 
     const quizzesCompleted = quizStats[0]?.totalQuizzes || 0;
     const averageScore = Math.round(quizStats[0]?.avgScore || 0);
-
 
     const [recentActivity] = await pool.execute(
       `

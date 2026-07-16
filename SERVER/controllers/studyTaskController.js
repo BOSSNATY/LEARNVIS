@@ -11,13 +11,15 @@ exports.getTodayTasks = async (req, res) => {
     // 2. Fetch tasks for today
     const [tasks] = await pool.execute(
       `
-      (
+            (
         SELECT 
           st.id, st.plan_id, st.topic_id, st.scheduled_date, st.session_type, st.status,
-          t.title AS topic_title, t.difficulty
+          t.title AS topic_title, t.difficulty,
+          ls.status AS learning_status
         FROM study_tasks st
         JOIN study_plans sp ON st.plan_id = sp.id
         JOIN topics t ON st.topic_id = t.id
+        LEFT JOIN learning_state ls ON ls.topic_id = st.topic_id AND ls.user_id = sp.user_id
         WHERE sp.user_id = ? AND st.status = 'completed'
         ORDER BY st.scheduled_date DESC, st.id DESC
         LIMIT 2
@@ -26,14 +28,17 @@ exports.getTodayTasks = async (req, res) => {
       (
         SELECT 
           st.id, st.plan_id, st.topic_id, st.scheduled_date, st.session_type, st.status,
-          t.title AS topic_title, t.difficulty
+          t.title AS topic_title, t.difficulty,
+          ls.status AS learning_status
         FROM study_tasks st
         JOIN study_plans sp ON st.plan_id = sp.id
         JOIN topics t ON st.topic_id = t.id
+        LEFT JOIN learning_state ls ON ls.topic_id = st.topic_id AND ls.user_id = sp.user_id
         WHERE sp.user_id = ? AND st.status IN ('pending', 'missed')
         ORDER BY st.scheduled_date ASC, st.id ASC
         LIMIT 3
       )
+
       ORDER BY status ASC, scheduled_date ASC
       `,
       [userId, userId], // Note: We pass userId twice because there are two '?' in the query now
