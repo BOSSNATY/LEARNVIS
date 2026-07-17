@@ -50,10 +50,11 @@ async function generateMicroLessons(userId, topicId, topicTitle = "") {
     `
     SELECT concept_tag, frequency
     FROM mistake_profiles
-    WHERE user_id = ?
+    WHERE user_id = ? AND topic_id = ?
     ORDER BY frequency DESC
+    LIMIT 3
     `,
-    [userId],
+    [userId, topicId],
   );
 
   if (!profiles.length) return [];

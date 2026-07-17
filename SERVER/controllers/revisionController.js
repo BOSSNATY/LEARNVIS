@@ -1,5 +1,39 @@
 const pool = require("../config/db");
 
+exports.getTargetedRevision = async (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  const { topicId } = req.params;
+
+  try {
+    const { generateMicroLessons } = require("../services/microLessonService");
+
+    // Check if we already generated micro lessons for this topic and user
+    let [existing] = await pool.execute(
+      "SELECT * FROM micro_lessons WHERE user_id = ? AND topic_id = ?",
+      [userId, topicId],
+    );
+
+    if (existing.length === 0) {
+      // Generate them!
+      const [[topic]] = await pool.execute(
+        "SELECT title FROM topics WHERE id = ?",
+        [topicId],
+      );
+      await generateMicroLessons(userId, topicId, topic?.title || "Topic");
+
+      // Fetch newly generated
+      [existing] = await pool.execute(
+        "SELECT * FROM micro_lessons WHERE user_id = ? AND topic_id = ?",
+        [userId, topicId],
+      );
+    }
+
+    res.json({ lessons: existing });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // GET /api/revision/due — get topics due for spaced revision today
 exports.getDueRevisions = async (req, res) => {
   const userId = req.user.userId;
