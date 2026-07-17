@@ -47,6 +47,12 @@ const Dashboard = () => {
         );
         return;
       }
+
+      if (task.learning_status === "practicing") {
+        navigate(`/student/revision/${task.topic_id}?taskId=${task.id}`);
+        return;
+      }
+
       // Otherwise, start a new tracked session
       const session = await api.startSessionFromTask(task.id);
       navigate(
@@ -196,27 +202,28 @@ const Dashboard = () => {
 
                     return dashboard.todayTasks.map((task) => {
                       const isCompleted = task.status === "completed";
-                      const isLocked = !isCompleted && foundPending;
-                      if (!isCompleted) foundPending = true;
+                      const needsRevision =
+                        task.learning_status === "practicing";
 
+                      // A task is only TRULY done if it's completed AND doesn't need revision
+                      const isEffectivelyCompleted =
+                        isCompleted && !needsRevision;
+
+                      const isLocked = !isEffectivelyCompleted && foundPending;
+                      if (!isEffectivelyCompleted) foundPending = true;
                       // Calculate Part I, Part II dynamically
                       topicCounts[task.topic_id] =
                         (topicCounts[task.topic_id] || 0) + 1;
                       const count = topicCounts[task.topic_id];
                       const partName = `Part ${romanNumerals[count - 1] || count}`;
-
-                      let buttonText = isCompleted
-                        ? "Completed"
-                        : "Start Learning";
-                      if (
-                        !isCompleted &&
-                        task.learning_status === "practicing"
-                      ) {
+                      let buttonText = "Start Learning";
+                      if (isEffectivelyCompleted) {
+                        buttonText = "Completed";
+                      } else if (needsRevision) {
                         buttonText = "Start Revision";
                       }
                       if (isLocked) buttonText = "Locked";
-
-                      let buttonColor = isCompleted
+                      let buttonColor = isEffectivelyCompleted
                         ? "bg-gray-600 hover:bg-gray-500 text-white"
                         : "bg-blue-600 hover:bg-blue-500 text-white";
                       if (isLocked) {

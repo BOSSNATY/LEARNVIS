@@ -228,4 +228,7 @@ export const api = {
     request(`/mock/${id}/submit`, { method: "POST", body: { answers } }),
   mockResult: (id) => request(`/mock/${id}/result`),
   getLatestAttempt: (topicId) => request(`/quiz/topic/${topicId}/latest`),
+  targetedRevision: (topicId) => request(`/revision/targeted/${topicId}`),
+  remasterQuiz: (quizId) =>
+    request(`/quiz/${quizId}/remaster`, { method: "POST" }),
 };
